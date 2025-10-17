@@ -134,6 +134,14 @@ class SystemLogger {
       if (gpu.memoryTotal !== undefined) headers.push('gpu_vram_total');
     }
     
+    // Intel RAPL power data
+    if (data && data.raplPower) {
+      Object.keys(data.raplPower).forEach(name => {
+        const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+        headers.push(`rapl_${cleanName}_power`);
+      });
+    }
+    
     // Network data
     if (data && data.network) {
       headers.push('network_rx_total', 'network_tx_total');
@@ -226,6 +234,14 @@ class SystemLogger {
       if (gpu.powerDraw !== undefined) values.push(this.formatNumber(gpu.powerDraw));
       if (gpu.memoryUsed !== undefined) values.push(gpu.memoryUsed || 0);
       if (gpu.memoryTotal !== undefined) values.push(gpu.memoryTotal || 0);
+    }
+    
+    // Intel RAPL power data
+    if (data && data.raplPower) {
+      Object.keys(data.raplPower).forEach(name => {
+        const raplData = data.raplPower[name];
+        values.push(this.formatNumber(raplData.power));
+      });
     }
     
     // Network data

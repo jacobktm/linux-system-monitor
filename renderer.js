@@ -53,6 +53,29 @@ function updateCPU(data) {
     : cpu.speed;
   document.getElementById('cpu-freq').innerHTML = formatStat(avgFreq, stats, 'cpu_avg_freq', ' MHz', 0);
   
+  // Update CPU power (Intel RAPL) - only show if data is available
+  const cpuPowerElement = document.getElementById('cpu-power');
+  const powerMetric = document.querySelector('.cpu-card .metric:has(#cpu-power)');
+  
+  if (data.raplPower && (data.raplPower['package-0'] || data.raplPower['core'])) {
+    // Show the power metric
+    if (powerMetric) powerMetric.style.display = '';
+    
+    if (data.raplPower['package-0']) {
+      const packagePower = data.raplPower['package-0'].power;
+      const powerKey = 'rapl_package_0_power';
+      cpuPowerElement.innerHTML = formatStat(packagePower, stats, powerKey, ' W', 1);
+    } else if (data.raplPower['core']) {
+      // Fallback to core power if package power not available
+      const corePower = data.raplPower['core'].power;
+      const powerKey = 'rapl_core_power';
+      cpuPowerElement.innerHTML = formatStat(corePower, stats, powerKey, ' W', 1);
+    }
+  } else {
+    // Hide the power metric completely
+    if (powerMetric) powerMetric.style.display = 'none';
+  }
+  
   // Hide temperature field if we have detailed sensors (to avoid duplication)
   const tempMetric = document.querySelector('.cpu-card .metric:has(#cpu-temp)');
   if (cpu.temperature.sensors && cpu.temperature.sensors.length > 0) {

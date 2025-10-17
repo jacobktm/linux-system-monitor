@@ -70,6 +70,7 @@ let mediumDataCache = {
   battery: null,
   fans: null,
   power: null,
+  raplPower: null,
   diskTemps: null,
   cpuTemps: null,
   systemTemps: null,
@@ -128,7 +129,7 @@ app.on('window-all-closed', () => {
   // Clear all caches on shutdown
   smartDataCache = null;
   staticDataCache = { cpu: null, osInfo: null, diskLayout: null, lastUpdate: 0 };
-  mediumDataCache = { battery: null, fans: null, power: null, diskTemps: null, cpuTemps: null, systemTemps: null, lastUpdate: 0 };
+  mediumDataCache = { battery: null, fans: null, power: null, raplPower: null, diskTemps: null, cpuTemps: null, systemTemps: null, lastUpdate: 0 };
   
   if (process.platform !== 'darwin') {
     app.quit();
@@ -653,6 +654,113 @@ async function getPowerConsumption() {
   return power;
 }
 
+// Intel RAPL power monitoring
+let raplData = {
+  previousEnergy: {},
+  previousTime: 0,
+  powerReadings: {},
+  stats: {}
+};
+
+// Helper function to get Intel RAPL power data
+async function getIntelRAPLPower() {
+  const raplPower = {};
+  
+  try {
+    // Check if Intel RAPL is available
+    const raplPath = '/sys/class/powercap/intel-rapl';
+    if (!fs.existsSync(raplPath)) {
+      return raplPower;
+    }
+    
+    const raplDirs = fs.readdirSync(raplPath).filter(d => d.startsWith('intel-rapl:'));
+    
+    for (const raplDir of raplDirs) {
+      const basePath = `${raplPath}/${raplDir}`;
+      const name = readSensorFile(`${basePath}/name`);
+      
+      if (!name) continue;
+      
+      // Read energy in microjoules
+      const energyStr = readSensorFile(`${basePath}/energy_uj`);
+      if (!energyStr) {
+        // If we can't read energy, skip this RAPL domain
+        continue;
+      }
+      
+      const energy = parseInt(energyStr);
+      const currentTime = Date.now();
+      
+      // Initialize previous data if not exists
+      if (!raplData.previousEnergy[name]) {
+        raplData.previousEnergy[name] = energy;
+        raplData.previousTime = currentTime;
+        raplData.powerReadings[name] = [];
+        raplData.stats[name] = {
+          min: null,
+          max: null,
+          sum: 0,
+          count: 0,
+          current: 0
+        };
+        continue;
+      }
+      
+      // Calculate power consumption
+      const timeDelta = (currentTime - raplData.previousTime) / 1000; // seconds
+      const energyDelta = energy - raplData.previousEnergy[name]; // microjoules
+      
+      // Convert to watts: microjoules / seconds / 1,000,000
+      let powerWatts = energyDelta / (timeDelta * 1000000);
+      
+      // Outlier filtering
+      if (timeDelta > 0 && timeDelta < 10 && // Reasonable time delta (0-10 seconds)
+          energyDelta >= 0 && // Energy should not decrease (no negative power)
+          powerWatts >= 0 && powerWatts < 1000) { // Reasonable power range (0-1000W)
+        
+        // Store the reading
+        raplData.powerReadings[name].push(powerWatts);
+        
+        // Keep only last 100 readings for rolling average
+        if (raplData.powerReadings[name].length > 100) {
+          raplData.powerReadings[name].shift();
+        }
+        
+        // Calculate rolling average (last 10 readings)
+        const recentReadings = raplData.powerReadings[name].slice(-10);
+        const avgPower = recentReadings.reduce((a, b) => a + b, 0) / recentReadings.length;
+        
+        // Update statistics
+        const stats = raplData.stats[name];
+        if (stats.min === null || avgPower < stats.min) stats.min = avgPower;
+        if (stats.max === null || avgPower > stats.max) stats.max = avgPower;
+        stats.sum += avgPower;
+        stats.count++;
+        stats.current = avgPower;
+        
+        raplPower[name] = {
+          power: avgPower,
+          energy: energy / 1000000, // Convert to joules
+          stats: {
+            current: stats.current,
+            min: stats.min,
+            max: stats.max,
+            avg: stats.sum / stats.count
+          }
+        };
+      }
+      
+      // Update previous values
+      raplData.previousEnergy[name] = energy;
+      raplData.previousTime = currentTime;
+    }
+  } catch (error) {
+    // Silently handle errors - RAPL data is optional
+  }
+  
+  return raplPower;
+}
+
 // Helper function to get per-disk I/O stats from /proc/diskstats
 async function getPerDiskIO() {
   const diskIO = {};
@@ -839,10 +947,11 @@ ipcMain.handle('get-system-data', async () => {
     if (needsMediumUpdate) {
       console.log('Updating medium data cache...');
       try {
-        const [battery, fans, power, diskTemps, cpuTemps, systemTemps] = await Promise.all([
+        const [battery, fans, power, raplPower, diskTemps, cpuTemps, systemTemps] = await Promise.all([
           si.battery(),
           getFanSpeeds(),
           getPowerConsumption(),
+          getIntelRAPLPower(),
           getDiskTemperatures(),
           getCPUTemperatures(),
           getSystemTemperatures()
@@ -850,6 +959,7 @@ ipcMain.handle('get-system-data', async () => {
         mediumDataCache.battery = battery;
         mediumDataCache.fans = fans;
         mediumDataCache.power = power;
+        mediumDataCache.raplPower = raplPower;
         mediumDataCache.diskTemps = diskTemps;
         mediumDataCache.cpuTemps = cpuTemps;
         mediumDataCache.systemTemps = systemTemps;
@@ -901,6 +1011,7 @@ ipcMain.handle('get-system-data', async () => {
     const battery = mediumDataCache.battery || await si.battery();
     const fans = mediumDataCache.fans || [];
     const power = mediumDataCache.power || [];
+    const raplPower = mediumDataCache.raplPower || {};
     const diskTemps = mediumDataCache.diskTemps || [];
     const cpuTemps = mediumDataCache.cpuTemps || [];
     const systemTemps = mediumDataCache.systemTemps || [];
@@ -999,6 +1110,7 @@ ipcMain.handle('get-system-data', async () => {
       },
       fans: fans,
       power: power,
+      raplPower: raplPower,
       systemTemps: systemTemps,
       timestamp: Date.now(),
       stats: {} // Initialize stats object
@@ -1041,6 +1153,14 @@ ipcMain.handle('get-system-data', async () => {
       if (gpu.utilizationGpu !== null) updateSimpleStat('gpu_usage', gpu.utilizationGpu);
       if (gpu.temperatureGpu !== null) updateSimpleStat('gpu_temp', gpu.temperatureGpu);
       if (gpu.powerDraw !== null) updateSimpleStat('gpu_power', gpu.powerDraw);
+    }
+    
+    // Track Intel RAPL power stats
+    if (result.raplPower) {
+      Object.entries(result.raplPower).forEach(([name, raplData]) => {
+        const key = `rapl_${name.replace(/[^a-zA-Z0-9]/g, '_')}_power`;
+        updateSimpleStat(key, raplData.power);
+      });
     }
     
     // Track fan speeds
