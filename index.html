@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Linux System Monitor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🖥️ Linux System Monitor</h1>
+      <div id="system-info" class="system-info"></div>
+    </header>
+
+    <div class="grid">
+      <!-- CPU Section -->
+      <section class="card cpu-card">
+        <h2>⚙️ CPU</h2>
+        <div class="cpu-info">
+          <div id="cpu-name" class="info-label"></div>
+          <div class="metric-row">
+            <div class="metric">
+              <span class="label">Usage</span>
+              <span id="cpu-usage" class="value">0%</span>
+            </div>
+            <div class="metric">
+              <span class="label">Frequency</span>
+              <span id="cpu-freq" class="value">0 MHz</span>
+            </div>
+            <div class="metric">
+              <span class="label">Temperature</span>
+              <span id="cpu-temp" class="value">0°C</span>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div id="cpu-progress" class="progress-fill"></div>
+          </div>
+        </div>
+        <div id="cpu-cores" class="cores-grid"></div>
+        <div id="cpu-temps" class="temps-list"></div>
+      </section>
+
+      <!-- Memory Section -->
+      <section class="card memory-card">
+        <h2>🧠 Memory</h2>
+        <div class="memory-info">
+          <div class="metric-row">
+            <div class="metric">
+              <span class="label">Usage</span>
+              <span id="mem-usage" class="value">0%</span>
+            </div>
+            <div class="metric">
+              <span class="label">Used</span>
+              <span id="mem-used" class="value">0 GB</span>
+            </div>
+            <div class="metric">
+              <span class="label">Total</span>
+              <span id="mem-total" class="value">0 GB</span>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div id="mem-progress" class="progress-fill"></div>
+          </div>
+          <div class="metric-row" style="margin-top: 15px;">
+            <div class="metric">
+              <span class="label">Swap Used</span>
+              <span id="swap-used" class="value">0 GB</span>
+            </div>
+            <div class="metric">
+              <span class="label">Swap Total</span>
+              <span id="swap-total" class="value">0 GB</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- GPU Section -->
+      <section class="card gpu-card">
+        <h2>🎮 GPU</h2>
+        <div id="gpu-info" class="gpu-info">
+          <div class="no-data">No GPU data available</div>
+        </div>
+      </section>
+
+      <!-- Disk Section -->
+      <section class="card disk-card">
+        <h2>💾 Storage</h2>
+        <div id="disk-list" class="disk-list"></div>
+        <div id="disk-temps" class="temps-list"></div>
+      </section>
+
+      <!-- Fans Section -->
+      <section class="card fans-card">
+        <h2>🌀 System Fans</h2>
+        <div id="fans-info" class="fans-info">
+          <div class="no-data">No fan sensors detected</div>
+        </div>
+      </section>
+
+      <!-- Power Section -->
+      <section class="card power-card">
+        <h2>⚡ Power</h2>
+        <div id="power-info" class="power-info">
+          <div class="no-data">No power sensors detected</div>
+        </div>
+      </section>
+
+      <!-- System Temperatures Section -->
+      <section class="card temps-card" style="display: none;">
+        <h2>🌡️ System Temperatures</h2>
+        <div id="system-temps-info" class="temps-info">
+          <div class="no-data">No additional temperature sensors</div>
+        </div>
+      </section>
+
+      <!-- Battery Section -->
+      <section class="card battery-card">
+        <h2>🔋 Battery</h2>
+        <div id="battery-info" class="battery-info">
+          <div class="no-data">No battery detected</div>
+        </div>
+      </section>
+
+      <!-- Network Section -->
+      <section class="card network-card">
+        <h2>🌐 Network</h2>
+        <div id="network-info" class="network-info">
+          <div class="no-data">Loading...</div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      <div class="status">
+        <span id="update-time">Last update: --</span>
+        <span id="refresh-rate">Refresh: 10 Hz (100ms)</span>
+        <span id="log-status" style="color: #4caf50;">📊 Logging enabled</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
+

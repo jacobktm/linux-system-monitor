@@ -1,0 +1,25 @@
+{
+  "name": "linux-system-monitor",
+  "version": "1.0.0",
+  "description": "Comprehensive Linux system resource monitor built with Electron",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --js-flags=\"--expose-gc\" --disable-gpu --disable-gpu-compositing --disable-gpu-sandbox",
+    "dev": "electron . --dev --js-flags=\"--expose-gc\" --disable-gpu --disable-gpu-compositing --disable-gpu-sandbox"
+  },
+  "keywords": [
+    "system-monitor",
+    "linux",
+    "electron",
+    "resource-monitor"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0"
+  },
+  "dependencies": {
+    "systeminformation": "^5.21.0"
+  }
+}
+
