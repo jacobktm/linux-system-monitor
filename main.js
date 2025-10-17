@@ -484,19 +484,23 @@ async function getCPUTemperatures() {
       const basePath = `/sys/class/hwmon/${hwmon}`;
       const name = readSensorFile(`${basePath}/name`);
       
-      // Only include CPU-related sensors
-      // Intel: coretemp (Package + Per-Core temps)
+      // Include CPU-related sensors
+      // Intel: coretemp (Package + Per-Core temps), x86_pkg_temp, etc.
       // AMD: k10temp (Tctl package + Tccd1, Tccd2, etc per-CCD temps)
       if (name && (name.includes('coretemp') || name.includes('k10temp') || 
-                    name.includes('zenpower') || name.includes('cpu_thermal'))) {
-        // Scan up to 20 temp sensors (handles gaps in numbering like temp1, temp3, temp5...)
+                    name.includes('zenpower') || name.includes('cpu_thermal') ||
+                    name.includes('x86_pkg_temp') || name.includes('acpitz'))) {
+        
+        // For Intel coretemp, scan all available temp sensors
+        // For AMD k10temp, scan all available temp sensors
+        // Scan up to 30 temp sensors to handle Intel systems with many cores
         let consecutiveMissing = 0;
-        for (let j = 1; j <= 20; j++) {
+        for (let j = 1; j <= 30; j++) {
           const temp = readSensorFile(`${basePath}/temp${j}_input`);
           if (temp === null) {
             consecutiveMissing++;
-            // Stop if we've missed 3 consecutive sensors (probably no more sensors)
-            if (consecutiveMissing >= 3) break;
+            // Stop if we've missed 5 consecutive sensors (Intel systems can have gaps)
+            if (consecutiveMissing >= 5) break;
             continue;
           }
           consecutiveMissing = 0;
@@ -505,7 +509,8 @@ async function getCPUTemperatures() {
           
           // Skip non-CPU labels if they exist
           const labelLower = label.toLowerCase();
-          if (!labelLower.includes('gpu') && !labelLower.includes('ambient')) {
+          if (!labelLower.includes('gpu') && !labelLower.includes('ambient') && 
+              !labelLower.includes('composite') && !labelLower.includes('nvme')) {
             temps.push({
               type: label,
               temp: parseInt(temp) / 1000,
@@ -517,14 +522,37 @@ async function getCPUTemperatures() {
     }
   } catch (e) {}
   
+  // Also check thermal zones for additional CPU temperature sensors
+  try {
+    let i = 0;
+    while (true) {
+      const temp = readSensorFile(`/sys/class/thermal/thermal_zone${i}/temp`);
+      if (temp === null) break;
+      const type = readSensorFile(`/sys/class/thermal/thermal_zone${i}/type`);
+      const typeStr = type || `zone${i}`;
+      
+      // Include CPU-related thermal zones
+      const typeLower = typeStr.toLowerCase();
+      if (typeLower.includes('cpu') || typeLower.includes('x86_pkg_temp') ||
+          typeLower.includes('core') || typeLower.includes('package')) {
+        temps.push({
+          type: typeStr,
+          temp: parseInt(temp) / 1000,
+          isCPU: true
+        });
+      }
+      i++;
+    }
+  } catch (e) {}
+  
   // Sort temps to show package/Tctl first, then cores/CCDs
   temps.sort((a, b) => {
     const aType = a.type.toLowerCase();
     const bType = b.type.toLowerCase();
     
     // Package/Tctl comes first
-    if (aType.includes('package') || aType.includes('tctl')) return -1;
-    if (bType.includes('package') || bType.includes('tctl')) return 1;
+    if (aType.includes('package') || aType.includes('tctl') || aType.includes('x86_pkg_temp')) return -1;
+    if (bType.includes('package') || bType.includes('tctl') || bType.includes('x86_pkg_temp')) return 1;
     
     // Then sort by label
     return aType.localeCompare(bType);
@@ -549,6 +577,7 @@ async function getSystemTemperatures() {
       // Skip CPU-related and GPU-related thermal zones
       const typeLower = typeStr.toLowerCase();
       if (!typeLower.includes('cpu') && !typeLower.includes('x86_pkg_temp') &&
+          !typeLower.includes('core') && !typeLower.includes('package') &&
           !typeLower.includes('gpu') && !typeLower.includes('nvidia') && 
           !typeLower.includes('amdgpu')) {
         temps.push({
@@ -571,6 +600,7 @@ async function getSystemTemperatures() {
       // Skip CPU sensors, GPU sensors, NVMe sensors, and drivetemp
       if (name && !name.includes('coretemp') && !name.includes('k10temp') && 
           !name.includes('zenpower') && !name.includes('cpu_thermal') &&
+          !name.includes('x86_pkg_temp') && !name.includes('acpitz') &&
           !name.includes('nouveau') && !name.includes('amdgpu') && !name.includes('radeon') &&
           name !== 'nvme' && !name.includes('drivetemp')) {
         let j = 1;
@@ -579,8 +609,10 @@ async function getSystemTemperatures() {
           if (temp === null) break;
           const label = readSensorFile(`${basePath}/temp${j}_label`) || `${name}_temp${j}`;
           
-          // Double-check: Skip if label contains "Composite" (extra safety)
-          if (!label.toLowerCase().includes('composite')) {
+          // Double-check: Skip if label contains "Composite" or CPU-related terms
+          const labelLower = label.toLowerCase();
+          if (!labelLower.includes('composite') && !labelLower.includes('cpu') &&
+              !labelLower.includes('core') && !labelLower.includes('package')) {
             temps.push({
               type: label,
               temp: parseInt(temp) / 1000,
