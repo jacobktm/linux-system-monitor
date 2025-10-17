@@ -225,6 +225,7 @@ void SystemMonitor::updateStats(const std::string& key, double value) {
     
     stats_.sum_values[key] += value;
     stats_.count_values[key]++;
+    stats_.current_values[key] = value; // Track current value
 }
 
 SystemStats SystemMonitor::getStats() {
@@ -236,4 +237,5 @@ void SystemMonitor::resetStats() {
     stats_.max_values.clear();
     stats_.sum_values.clear();
     stats_.count_values.clear();
+    stats_.current_values.clear();
 }

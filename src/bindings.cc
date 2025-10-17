@@ -127,29 +127,34 @@ NAN_METHOD(GetStats) {
     SystemStats stats = g_monitor->getStats();
     Local<Object> result = Nan::New<Object>();
     
-    // Convert stats to JavaScript object
-    Local<Object> minValues = Nan::New<Object>();
-    Local<Object> maxValues = Nan::New<Object>();
-    Local<Object> avgValues = Nan::New<Object>();
-    
+    // Convert stats to JavaScript object in the same format as the JavaScript version
+    // Each key should have { current, min, max, avg }
     for (const auto& pair : stats.min_values) {
-        Nan::Set(minValues, Nan::New<String>(pair.first).ToLocalChecked(), Nan::New<Number>(pair.second));
-    }
-    
-    for (const auto& pair : stats.max_values) {
-        Nan::Set(maxValues, Nan::New<String>(pair.first).ToLocalChecked(), Nan::New<Number>(pair.second));
-    }
-    
-    for (const auto& pair : stats.sum_values) {
-        if (stats.count_values.find(pair.first) != stats.count_values.end()) {
-            double avg = pair.second / stats.count_values[pair.first];
-            Nan::Set(avgValues, Nan::New<String>(pair.first).ToLocalChecked(), Nan::New<Number>(avg));
+        const std::string& key = pair.first;
+        Local<Object> statObj = Nan::New<Object>();
+        
+        // Set min value
+        Nan::Set(statObj, Nan::New("min").ToLocalChecked(), Nan::New<Number>(pair.second));
+        
+        // Set max value if it exists
+        if (stats.max_values.find(key) != stats.max_values.end()) {
+            Nan::Set(statObj, Nan::New("max").ToLocalChecked(), Nan::New<Number>(stats.max_values[key]));
         }
+        
+        // Set avg value if it exists
+        if (stats.sum_values.find(key) != stats.sum_values.end() && 
+            stats.count_values.find(key) != stats.count_values.end()) {
+            double avg = stats.sum_values[key] / stats.count_values[key];
+            Nan::Set(statObj, Nan::New("avg").ToLocalChecked(), Nan::New<Number>(avg));
+        }
+        
+        // Set current value
+        if (stats.current_values.find(key) != stats.current_values.end()) {
+            Nan::Set(statObj, Nan::New("current").ToLocalChecked(), Nan::New<Number>(stats.current_values[key]));
+        }
+        
+        Nan::Set(result, Nan::New<String>(key).ToLocalChecked(), statObj);
     }
-    
-    Nan::Set(result, Nan::New("min").ToLocalChecked(), minValues);
-    Nan::Set(result, Nan::New("max").ToLocalChecked(), maxValues);
-    Nan::Set(result, Nan::New("avg").ToLocalChecked(), avgValues);
     
     info.GetReturnValue().Set(result);
 }

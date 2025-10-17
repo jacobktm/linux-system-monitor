@@ -25,6 +25,7 @@ struct SystemStats {
     std::map<std::string, double> max_values;
     std::map<std::string, double> sum_values;
     std::map<std::string, int> count_values;
+    std::map<std::string, double> current_values;
 };
 
 // Main class for system monitoring
