@@ -76,18 +76,6 @@ function updateCPU(data) {
     if (powerMetric) powerMetric.style.display = 'none';
   }
   
-  // Hide temperature field if we have detailed sensors (to avoid duplication)
-  const tempMetric = document.querySelector('.cpu-card .metric:has(#cpu-temp)');
-  if (cpu.temperature.sensors && cpu.temperature.sensors.length > 0) {
-    if (tempMetric) tempMetric.style.display = 'none';
-  } else {
-    if (tempMetric) tempMetric.style.display = '';
-    const mainTemp = cpu.temperature.main || 
-                     (cpu.temperature.cores && cpu.temperature.cores.length > 0 
-                       ? cpu.temperature.cores[0] 
-                       : 0);
-    document.getElementById('cpu-temp').textContent = mainTemp > 0 ? `${mainTemp.toFixed(1)}°C` : 'N/A';
-  }
   
   // Update progress bar
   document.getElementById('cpu-progress').style.width = `${cpu.currentLoad}%`;
@@ -101,9 +89,6 @@ function updateCPU(data) {
     coreDiv.className = 'core-item';
     
     const freq = cpu.frequencies[index] || cpu.speed;
-    const coreTemp = cpu.temperature.cores && cpu.temperature.cores[index] 
-      ? ` • ${cpu.temperature.cores[index].toFixed(1)}°C` 
-      : '';
     
     // Add stats for core load and frequency
     const coreLoadKey = `cpu_core${index}_usage`;
@@ -114,7 +99,7 @@ function updateCPU(data) {
     coreDiv.innerHTML = `
       <div class="core-name">Core ${index}</div>
       <div class="core-load">${coreLoadText}</div>
-      <div class="core-freq">${coreFreqText}${coreTemp}</div>
+      <div class="core-freq">${coreFreqText}</div>
     `;
     
     coresContainer.appendChild(coreDiv);
