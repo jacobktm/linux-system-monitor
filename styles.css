@@ -176,45 +176,34 @@ header h1 {
 }
 
 .cores-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
   margin-top: 20px;
 }
 
 .core-item {
   background: rgba(255, 255, 255, 0.05);
-  padding: 8px 12px;
+  padding: 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  flex: 1 1 120px;
-  min-width: 100px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-  transition: background 0.3s ease;
-}
-
-.core-item:hover {
-  background: rgba(255, 255, 255, 0.08);
 }
 
 .core-item .core-name {
-  font-size: 0.7em;
+  font-size: 0.85em;
   color: #888;
-  margin-bottom: 3px;
+  margin-bottom: 5px;
 }
 
 .core-item .core-load {
-  font-size: 1em;
+  font-size: 1.1em;
   font-weight: bold;
   color: #fff;
-  margin-bottom: 2px;
+  margin-bottom: 8px;
 }
 
 .core-item .core-freq {
-  font-size: 0.7em;
+  font-size: 0.8em;
   color: #aaa;
 }
 
