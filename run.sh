@@ -89,6 +89,28 @@ check_system_requirements() {
     done
 }
 
+# Function to detect display server
+detect_display_server() {
+    # Check for Wayland
+    if [ -n "$WAYLAND_DISPLAY" ] || [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+        echo "wayland"
+    # Check for X11
+    elif [ -n "$DISPLAY" ] || [ "$XDG_SESSION_TYPE" = "x11" ]; then
+        echo "x11"
+    # Fallback: try to detect from session
+    elif command_exists loginctl; then
+        local session_type=$(loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type --value 2>/dev/null)
+        if [ "$session_type" = "wayland" ]; then
+            echo "wayland"
+        else
+            echo "x11"
+        fi
+    else
+        # Default fallback
+        echo "x11"
+    fi
+}
+
 # Function to set optimal environment variables
 set_environment() {
     print_status "Setting optimal environment variables..."
@@ -157,6 +179,10 @@ run_application() {
     
     print_status "Starting Linux System Monitor in $mode mode..."
     
+    # Detect display server
+    local display_server=$(detect_display_server)
+    print_status "Detected display server: $display_server"
+    
     # Create PID file
     create_pid_file
     
@@ -168,7 +194,7 @@ run_application() {
         print_status "Starting in development mode with DevTools..."
         if [ "$use_sudo" = true ]; then
             # Preserve user environment for npm access and add flags for root
-            sudo -E env "PATH=$PATH" npm run dev -- --no-sandbox --ozone-platform=wayland
+            sudo -E env "PATH=$PATH" npm run dev -- --no-sandbox --ozone-platform=$display_server
         else
             npm run dev
         fi
@@ -176,7 +202,7 @@ run_application() {
         print_status "Starting in production mode..."
         if [ "$use_sudo" = true ]; then
             # Preserve user environment for npm access and add flags for root
-            sudo -E env "PATH=$PATH" npm start -- --no-sandbox --ozone-platform=wayland
+            sudo -E env "PATH=$PATH" npm start -- --no-sandbox --ozone-platform=$display_server
         else
             npm start
         fi
