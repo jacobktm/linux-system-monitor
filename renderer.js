@@ -631,12 +631,7 @@ async function updateSystemData() {
   try {
     const data = await window.electron.getSystemData();
     
-    // Temporary debug - check if stats are being received
-    if (data.stats && Object.keys(data.stats).length > 0) {
-      console.log('✅ Stats received:', Object.keys(data.stats).length, 'metrics');
-    } else {
-      console.log('❌ No stats received or empty stats object');
-    }
+    // Stats are being received and processed
     
     updateCPU(data);
     updateMemory(data);
@@ -668,16 +663,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial update
   updateSystemData();
   
-  // Update every 100ms for 10 Hz refresh rate
+  // Update every 1000ms for 1 Hz refresh rate (more reasonable for system monitoring)
   setInterval(() => {
     updateSystemData();
     updateCount++;
     
-    // Hint for cleanup every 100 updates (~10 seconds at 10 Hz)
-    if (updateCount >= 100) {
+    // Hint for cleanup every 60 updates (~1 minute at 1 Hz)
+    if (updateCount >= 60) {
       updateCount = 0;
       // Let browser handle its own memory management
     }
-  }, 100); // 100ms = 10 Hz
+  }, 1000); // 1000ms = 1 Hz
 });
 

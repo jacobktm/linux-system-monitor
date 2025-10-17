@@ -1000,9 +1000,7 @@ ipcMain.handle('get-system-data', async () => {
     appInitialized = true;
   }
   
-  console.log('IPC handler called - starting data fetch');
   try {
-    console.log('Starting data collection...');
     const now = Date.now();
     const needsStaticUpdate = !staticDataCache.cpu || (now - staticDataCache.lastUpdate) > STATIC_CACHE_DURATION;
     const needsMediumUpdate = !mediumDataCache.battery || (now - mediumDataCache.lastUpdate) > MEDIUM_CACHE_DURATION;
@@ -1058,7 +1056,6 @@ ipcMain.handle('get-system-data', async () => {
     }
     
     // Fetch fast-updating data (every 100ms) - only the essentials
-    console.log('Fetching fast-updating data...');
     let cpuLoad, cpuTemp, cpuFreqs, mem, diskIO, perDiskIO, gpuData, networkStats, diskSmart;
     
     try {
@@ -1081,7 +1078,6 @@ ipcMain.handle('get-system-data', async () => {
         getGPUData(),
         si.networkStats()
       ]);
-      console.log('Fast data fetched successfully');
     
       // Get SMART data (cached for 60s)
       diskSmart = await getDiskSMARTData();
