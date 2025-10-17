@@ -489,7 +489,7 @@ async function getCPUTemperatures() {
       // AMD: k10temp (Tctl package + Tccd1, Tccd2, etc per-CCD temps)
       if (name && (name.includes('coretemp') || name.includes('k10temp') || 
                     name.includes('zenpower') || name.includes('cpu_thermal') ||
-                    name.includes('x86_pkg_temp') || name.includes('acpitz'))) {
+                    name.includes('x86_pkg_temp'))) {
         
         // For Intel coretemp, scan all available temp sensors
         // For AMD k10temp, scan all available temp sensors
@@ -600,7 +600,7 @@ async function getSystemTemperatures() {
       // Skip CPU sensors, GPU sensors, NVMe sensors, and drivetemp
       if (name && !name.includes('coretemp') && !name.includes('k10temp') && 
           !name.includes('zenpower') && !name.includes('cpu_thermal') &&
-          !name.includes('x86_pkg_temp') && !name.includes('acpitz') &&
+          !name.includes('x86_pkg_temp') &&
           !name.includes('nouveau') && !name.includes('amdgpu') && !name.includes('radeon') &&
           name !== 'nvme' && !name.includes('drivetemp')) {
         let j = 1;
@@ -684,6 +684,40 @@ async function getPowerConsumption() {
   }
   
   return power;
+}
+
+// Helper function to get DDR5 memory temperatures (spd5118 sensors)
+async function getDDR5MemoryTemps() {
+  const memoryTemps = [];
+  
+  try {
+    const hwmonDirs = fs.readdirSync('/sys/class/hwmon').filter(d => d.startsWith('hwmon'));
+    for (const hwmon of hwmonDirs) {
+      const basePath = `/sys/class/hwmon/${hwmon}`;
+      const name = readSensorFile(`${basePath}/name`);
+      
+      // Look for spd5118 sensors (DDR5 memory temperature sensors)
+      if (name && name.includes('spd5118')) {
+        let j = 1;
+        while (true) {
+          const tempInput = readSensorFile(`${basePath}/temp${j}_input`);
+          if (tempInput === null) break;
+          
+          const label = readSensorFile(`${basePath}/temp${j}_label`) || `DDR5_Module_${j}`;
+          
+          memoryTemps.push({
+            label: label,
+            temp: parseInt(tempInput) / 1000 // Convert millidegrees to degrees
+          });
+          j++;
+        }
+      }
+    }
+  } catch (error) {
+    // DDR5 memory temperature sensors not available
+  }
+  
+  return memoryTemps;
 }
 
 // Intel RAPL power monitoring
@@ -979,14 +1013,15 @@ ipcMain.handle('get-system-data', async () => {
     if (needsMediumUpdate) {
       console.log('Updating medium data cache...');
       try {
-        const [battery, fans, power, raplPower, diskTemps, cpuTemps, systemTemps] = await Promise.all([
+        const [battery, fans, power, raplPower, diskTemps, cpuTemps, systemTemps, ddr5Temps] = await Promise.all([
           si.battery(),
           getFanSpeeds(),
           getPowerConsumption(),
           getIntelRAPLPower(),
           getDiskTemperatures(),
           getCPUTemperatures(),
-          getSystemTemperatures()
+          getSystemTemperatures(),
+          getDDR5MemoryTemps()
         ]);
         mediumDataCache.battery = battery;
         mediumDataCache.fans = fans;
@@ -995,6 +1030,7 @@ ipcMain.handle('get-system-data', async () => {
         mediumDataCache.diskTemps = diskTemps;
         mediumDataCache.cpuTemps = cpuTemps;
         mediumDataCache.systemTemps = systemTemps;
+        mediumDataCache.ddr5Temps = ddr5Temps;
         mediumDataCache.lastUpdate = now;
         console.log('Medium data cache updated successfully');
       } catch (error) {
@@ -1047,6 +1083,7 @@ ipcMain.handle('get-system-data', async () => {
     const diskTemps = mediumDataCache.diskTemps || [];
     const cpuTemps = mediumDataCache.cpuTemps || [];
     const systemTemps = mediumDataCache.systemTemps || [];
+    const ddr5Temps = mediumDataCache.ddr5Temps || [];
 
     // Calculate per-core usage
     const coreLoads = cpuLoad.cpus || [];
@@ -1083,7 +1120,8 @@ ipcMain.handle('get-system-data', async () => {
         usedPercent: (mem.used / mem.total) * 100,
         swapTotal: mem.swaptotal,
         swapUsed: mem.swapused,
-        swapFree: mem.swapfree
+        swapFree: mem.swapfree,
+        ddr5Temps: ddr5Temps
       },
       disk: {
         layout: diskLayout.map(disk => ({
@@ -1214,6 +1252,13 @@ ipcMain.handle('get-system-data', async () => {
     if (result.disk.temperatures) {
       Object.entries(result.disk.temperatures).forEach(([device, temp]) => {
         updateSimpleStat(`disk_${device}_temp`, temp);
+      });
+    }
+    
+    // Track DDR5 memory temperatures
+    if (result.memory.ddr5Temps && result.memory.ddr5Temps.length > 0) {
+      result.memory.ddr5Temps.forEach((memTemp, index) => {
+        updateSimpleStat(`ddr5_module_${index}_temp`, memTemp.temp);
       });
     }
     

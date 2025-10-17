@@ -11,10 +11,10 @@ function formatBytes(bytes, decimals = 2) {
 // Format stat with min/max/avg
 function formatStat(current, stats, key, suffix = '%', decimals = 1) {
   if (!stats || !stats[key]) {
-    return current.toFixed(decimals) + suffix;
+    return `<span class="current-value">${current.toFixed(decimals)}${suffix}</span>`;
   }
   const stat = stats[key];
-  return `${current.toFixed(decimals)}${suffix}<span class="stat-range" title="Min/Max/Avg">[${stat.min.toFixed(decimals)} / ${stat.max.toFixed(decimals)} / ${stat.avg.toFixed(decimals)}]</span>`;
+  return `<span class="current-value">${current.toFixed(decimals)}${suffix}</span><span class="stat-range" title="Min/Max/Avg">[${stat.min.toFixed(decimals)} / ${stat.max.toFixed(decimals)} / ${stat.avg.toFixed(decimals)}]</span>`;
 }
 
 // Format time to human-readable format
@@ -96,10 +96,20 @@ function updateCPU(data) {
     const coreLoadText = formatStat(core.load, stats, coreLoadKey, '%', 1);
     const coreFreqText = formatStat(freq, stats, coreFreqKey, ' MHz', 0);
     
+    // Create the HTML structure with proper separation
+    const coreLoadValue = core.load.toFixed(1) + '%';
+    const coreFreqValue = freq + ' MHz';
+    
+    const coreLoadStats = stats && stats[coreLoadKey] ? 
+      `<span class="stat-range">[${stats[coreLoadKey].min.toFixed(1)} / ${stats[coreLoadKey].max.toFixed(1)} / ${stats[coreLoadKey].avg.toFixed(1)}]</span>` : '';
+    
+    const coreFreqStats = stats && stats[coreFreqKey] ? 
+      `<span class="stat-range">[${stats[coreFreqKey].min.toFixed(1)} / ${stats[coreFreqKey].max.toFixed(1)} / ${stats[coreFreqKey].avg.toFixed(1)}]</span>` : '';
+
     coreDiv.innerHTML = `
       <div class="core-name">Core ${index}</div>
-      <div class="core-load">${coreLoadText}</div>
-      <div class="core-freq">${coreFreqText}</div>
+      <div class="core-load">${coreLoadValue}${coreLoadStats}</div>
+      <div class="core-freq">${coreFreqValue}${coreFreqStats}</div>
     `;
     
     coresContainer.appendChild(coreDiv);
@@ -144,6 +154,38 @@ function updateMemory(data) {
   
   document.getElementById('swap-used').textContent = formatBytes(mem.swapUsed);
   document.getElementById('swap-total').textContent = formatBytes(mem.swapTotal);
+  
+  // Update DDR5 memory temperatures
+  const ddr5Container = document.getElementById('ddr5-temps');
+  const ddr5Content = document.getElementById('ddr5-temps-content');
+  
+  if (mem.ddr5Temps && mem.ddr5Temps.length > 0) {
+    // Show the DDR5 temperature section
+    ddr5Container.style.display = 'block';
+    
+    // Clear previous content
+    ddr5Content.innerHTML = '';
+    
+    // Add each DDR5 module temperature
+    mem.ddr5Temps.forEach((memTemp, index) => {
+      const tempDiv = document.createElement('div');
+      tempDiv.className = 'ddr5-temp-item';
+      tempDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding: 5px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+      
+      const tempKey = `ddr5_module_${index}_temp`;
+      const tempValue = formatStat(memTemp.temp, stats, tempKey, '°C', 1);
+      
+      tempDiv.innerHTML = `
+        <span style="font-size: 0.9em; color: #aaa;">${memTemp.label}</span>
+        <span style="font-size: 0.9em; color: #fff;">${tempValue}</span>
+      `;
+      
+      ddr5Content.appendChild(tempDiv);
+    });
+  } else {
+    // Hide the DDR5 temperature section if no DDR5 modules detected
+    ddr5Container.style.display = 'none';
+  }
 }
 
 // Update GPU information

@@ -102,6 +102,14 @@ class SystemLogger {
       if (data.memory.swap && data.memory.swap.used !== undefined) {
         headers.push('swap_used'); // Only dynamic values
       }
+      
+      // DDR5 memory temperatures
+      if (data.memory.ddr5Temps && data.memory.ddr5Temps.length > 0) {
+        data.memory.ddr5Temps.forEach((memTemp, index) => {
+          const name = memTemp.label.replace(/[^a-zA-Z0-9]/g, '_');
+          headers.push(`ddr5_${name}_temp`);
+        });
+      }
     }
     
     // Disk data
@@ -201,6 +209,13 @@ class SystemLogger {
       values.push(this.formatNumber(data.memory.usedPercent));
       if (data.memory.swap && data.memory.swap.used !== undefined) {
         values.push(data.memory.swap.used || 0);
+      }
+      
+      // DDR5 memory temperatures
+      if (data.memory.ddr5Temps && data.memory.ddr5Temps.length > 0) {
+        data.memory.ddr5Temps.forEach(memTemp => {
+          values.push(this.formatNumber(memTemp.temp));
+        });
       }
     }
     
