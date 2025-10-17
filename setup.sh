@@ -191,6 +191,40 @@ install_npm_deps() {
     print_success "npm dependencies installed successfully"
 }
 
+# Function to build native addon
+build_native_addon() {
+    print_status "Building native system monitor addon..."
+    
+    if [ ! -f "binding.gyp" ]; then
+        print_warning "binding.gyp not found. Skipping native addon build..."
+        return 0
+    fi
+    
+    # Check if build directory exists and clean it
+    if [ -d "build" ]; then
+        print_status "Cleaning previous build..."
+        npm run clean
+    fi
+    
+    # Build the native addon for Electron
+    npx electron-rebuild
+    
+    if [ $? -eq 0 ]; then
+        print_success "Native addon built successfully"
+        
+        # Test the native addon
+        print_status "Testing native addon..."
+        if node test_native.js > /dev/null 2>&1; then
+            print_success "Native addon test passed"
+        else
+            print_warning "Native addon test failed, but continuing..."
+        fi
+    else
+        print_warning "Failed to build native addon. Application will use JavaScript fallback."
+        print_warning "This may result in reduced performance on high-core systems."
+    fi
+}
+
 # Function to verify installation
 verify_installation() {
     print_status "Verifying installation..."
@@ -305,6 +339,9 @@ main() {
     
     # Install npm dependencies
     install_npm_deps
+    
+    # Build native addon
+    build_native_addon
     
     # Verify installation
     if verify_installation; then

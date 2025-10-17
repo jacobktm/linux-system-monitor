@@ -8,11 +8,13 @@ const si = require('systeminformation');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const SystemLogger = require('./logger');
+const HybridSystemMonitor = require('./hybrid_monitor');
 
 let mainWindow;
 let gpuType = null; // 'nvidia', 'amd', or null
 let appInitialized = false;
 let logger = null;
+let hybridMonitor = null;
 
 // Simple stats tracking
 let simpleStats = {};
@@ -22,6 +24,13 @@ function updateSimpleStat(key, value) {
     return;
   }
   
+  // Use hybrid monitor if available
+  if (hybridMonitor) {
+    hybridMonitor.updateStats(key, value);
+    return;
+  }
+  
+  // Fallback to JavaScript implementation
   if (!simpleStats[key]) {
     simpleStats[key] = {
       min: value,
@@ -40,6 +49,12 @@ function updateSimpleStat(key, value) {
 }
 
 function getSimpleStats() {
+  // Use hybrid monitor if available
+  if (hybridMonitor) {
+    return hybridMonitor.getStats();
+  }
+  
+  // Fallback to JavaScript implementation
   const result = {};
   for (const [key, stat] of Object.entries(simpleStats)) {
     result[key] = {
@@ -109,6 +124,9 @@ function createWindow() {
 app.whenReady().then(() => {
   // Initialize logger
   logger = new SystemLogger();
+  
+  // Initialize hybrid monitor
+  hybridMonitor = new HybridSystemMonitor();
   
   createWindow();
   
@@ -1017,11 +1035,11 @@ ipcMain.handle('get-system-data', async () => {
           si.battery(),
           getFanSpeeds(),
           getPowerConsumption(),
-          getIntelRAPLPower(),
+          hybridMonitor.getIntelRAPLPower(),
           getDiskTemperatures(),
-          getCPUTemperatures(),
+          hybridMonitor.getCPUTemperatures(),
           getSystemTemperatures(),
-          getDDR5MemoryTemps()
+          hybridMonitor.getDDR5MemoryTemps()
         ]);
         mediumDataCache.battery = battery;
         mediumDataCache.fans = fans;
