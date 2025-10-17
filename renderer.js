@@ -14,7 +14,7 @@ function formatStat(current, stats, key, suffix = '%', decimals = 1) {
     return current.toFixed(decimals) + suffix;
   }
   const stat = stats[key];
-  return `${current.toFixed(decimals)}${suffix} <span class="stat-range" title="Min/Max/Avg">[${stat.min.toFixed(decimals)} / ${stat.max.toFixed(decimals)} / ${stat.avg.toFixed(decimals)}]</span>`;
+  return `${current.toFixed(decimals)}${suffix}<span class="stat-range" title="Min/Max/Avg">[${stat.min.toFixed(decimals)} / ${stat.max.toFixed(decimals)} / ${stat.avg.toFixed(decimals)}]</span>`;
 }
 
 // Format time to human-readable format
