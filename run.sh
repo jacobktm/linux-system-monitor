@@ -56,6 +56,14 @@ check_prerequisites() {
         exit 1
     fi
     
+    # Check if native addon is built
+    if [ -f "build/Release/system_monitor.node" ]; then
+        print_success "Native addon found - performance optimizations available"
+    else
+        print_warning "Native addon not found - application will use JavaScript fallback"
+        print_warning "Run ./setup.sh to build the native addon for better performance"
+    fi
+    
     print_success "Prerequisites check passed"
 }
 
@@ -222,6 +230,11 @@ show_help() {
     echo "  -v, --verbose Enable verbose output"
     echo "  -s, --sudo    Run with elevated privileges (for Intel RAPL power monitoring)"
     echo
+    echo "Performance:"
+    echo "  The application includes a native C++ addon for improved performance."
+    echo "  If the native addon is not found, the application will use JavaScript fallback."
+    echo "  Run ./setup.sh to ensure the native addon is built."
+    echo
     echo "Examples:"
     echo "  $0              # Start in production mode"
     echo "  $0 --dev        # Start in development mode"
@@ -247,6 +260,7 @@ system_check_only() {
     print_success "System is ready to run the Linux System Monitor"
     print_status "Run '$0' to start the application"
     print_status "Run '$0 --sudo' to start with elevated privileges (for Intel RAPL power monitoring)"
+    print_status "Run './setup.sh' to build the native addon for optimal performance"
 }
 
 # Main function
