@@ -145,19 +145,28 @@ header h1 {
   color: #fff;
   line-height: 1.2;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.stat-range {
-  font-size: 0.55em;
+.metric .value .current-value {
+  flex: 1;
+}
+
+.metric .value .stat-range {
+  flex-shrink: 0;
+  margin-left: 15px;
+  font-size: 0.4em;
   color: #666;
   font-weight: normal;
-  margin-top: 2px;
-  opacity: 0.8;
+  opacity: 0.7;
   white-space: nowrap;
   line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
+
 
 .progress-bar {
   width: 100%;
@@ -177,7 +186,7 @@ header h1 {
 
 .cores-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 10px;
   margin-top: 20px;
 }
@@ -187,6 +196,38 @@ header h1 {
   padding: 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.core-item .core-load,
+.core-item .core-freq {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.core-item .core-load .stat-range {
+  font-size: 0.45em;
+  color: #888;
+  font-weight: normal;
+  opacity: 0.8;
+  margin-left: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.core-item .core-freq .stat-range {
+  font-size: 0.6em;
+  color: #888;
+  font-weight: normal;
+  opacity: 0.8;
+  margin-left: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .core-item .core-name {
@@ -419,7 +460,7 @@ footer {
   }
   
   .cores-grid {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 }
 
