@@ -5,6 +5,7 @@ class HybridSystemMonitor {
     constructor() {
         this.nativeMonitor = null;
         this.useNative = false;
+        this.simpleStats = {};
         this.init();
     }
 
@@ -91,28 +92,33 @@ class HybridSystemMonitor {
     async getIntelRAPLPower() {
         if (this.useNative) {
             try {
-                const sensors = this.nativeMonitor.getRAPLPower();
+                // Use the new native C implementation with power calculations
+                console.log('🔧 RAPL: Using native C++ implementation');
+                const powerData = this.nativeMonitor.getRAPLPowerCalculated();
+                console.log('🔧 RAPL: Native C++ returned', powerData.length, 'power readings');
                 const raplPower = {};
-                sensors.forEach(sensor => {
-                    raplPower[sensor.name] = {
-                        power: 0, // Will be calculated from energy delta
-                        energy: sensor.value,
+                powerData.forEach(power => {
+                    raplPower[power.name] = {
+                        power: power.power,
+                        energy: power.energy,
                         stats: {
-                            current: 0,
-                            min: 0,
-                            max: 0,
-                            avg: 0
+                            current: power.power,
+                            min: power.min_power,
+                            max: power.max_power,
+                            avg: power.avg_power
                         }
                     };
                 });
                 return raplPower;
             } catch (error) {
-                console.warn('Native RAPL power failed, falling back to JavaScript:', error.message);
+                console.warn('Native RAPL power calculated failed, falling back to JavaScript:', error.message);
+                console.warn('Error details:', error);
                 this.useNative = false;
             }
         }
         
         // JavaScript fallback - use existing function
+        console.log('🔧 RAPL: Using JavaScript fallback (native not available)');
         return await this.getIntelRAPLPowerJS();
     }
 
@@ -266,49 +272,161 @@ class HybridSystemMonitor {
     }
 
     async getIntelRAPLPowerJS() {
+        // Use the main.js power calculation function
+        return await this.getIntelRAPLPowerMain();
+    }
+
+    async getIntelRAPLPowerMain() {
         const raplPower = {};
         
         try {
-            if (!fs.existsSync('/sys/class/powercap/intel-rapl')) {
+            // Check if Intel RAPL is available
+            const raplPath = '/sys/class/powercap/intel-rapl';
+            if (!fs.existsSync(raplPath)) {
                 return raplPower;
             }
-
-            const raplDirs = fs.readdirSync('/sys/class/powercap/intel-rapl').filter(d => d.startsWith('intel-rapl:'));
-
+            
+            const raplDirs = fs.readdirSync(raplPath).filter(d => d.startsWith('intel-rapl:'));
+            
             for (const raplDir of raplDirs) {
-                const basePath = `/sys/class/powercap/intel-rapl/${raplDir}`;
+                const basePath = `${raplPath}/${raplDir}`;
                 const name = this.readSensorFile(`${basePath}/name`);
+                
+                if (!name) continue;
+                
+                // Read energy in microjoules
                 const energyStr = this.readSensorFile(`${basePath}/energy_uj`);
-
-                if (name && energyStr) {
+                if (!energyStr) continue;
+                
+                const energy = parseInt(energyStr);
+                const currentTime = performance.now() * 1000; // Convert to microseconds
+                
+                // Initialize previous data if not exists
+                if (!this.raplData) {
+                    this.raplData = {
+                        previousEnergy: {},
+                        previousTime: {},
+                        powerReadings: {},
+                        stats: {}
+                    };
+                }
+                
+                if (!this.raplData.previousEnergy[name]) {
+                    this.raplData.previousEnergy[name] = energy;
+                    this.raplData.previousTime[name] = currentTime;
+                    this.raplData.powerReadings[name] = [];
+                    this.raplData.stats[name] = {
+                        min: null,
+                        max: null,
+                        sum: 0,
+                        count: 0,
+                        current: 0
+                    };
+                    continue;
+                }
+                
+                // Calculate power consumption
+                const timeDelta = (currentTime - this.raplData.previousTime[name]) / 1000000; // seconds (from microseconds)
+                let energyDelta = energy - this.raplData.previousEnergy[name]; // microjoules
+                
+                // Handle energy counter overflow (32-bit counter wraps around at ~2^32)
+                const MAX_ENERGY = Math.pow(2, 32); // 4,294,967,296 μJ
+                if (energyDelta < 0) {
+                    // Counter wrapped around
+                    energyDelta = energy + (MAX_ENERGY - this.raplData.previousEnergy[name]);
+                }
+                
+                // Convert to watts: microjoules / seconds / 1,000,000
+                // timeDelta is in seconds (converted from microseconds)
+                // We need: (μJ / seconds) / 1,000,000 = J/s = W
+                let powerWatts = energyDelta / timeDelta / 1000000;
+                
+                // Outlier filtering
+                if (timeDelta > 0.1 && timeDelta < 10 && // Reasonable time delta (0.1-10 seconds)
+                    energyDelta >= 0 && // Energy should not decrease (no negative power)
+                    powerWatts >= 0 && powerWatts < 1000) { // Reasonable power range (0-1000W)
+                    
+                    // Store the reading
+                    this.raplData.powerReadings[name].push(powerWatts);
+                    
+                    // Keep only last 100 readings for rolling average
+                    if (this.raplData.powerReadings[name].length > 100) {
+                        this.raplData.powerReadings[name].shift();
+                    }
+                    
+                    // Calculate rolling average (last 10 readings)
+                    const recentReadings = this.raplData.powerReadings[name].slice(-10);
+                    const avgPower = recentReadings.reduce((a, b) => a + b, 0) / recentReadings.length;
+                    
+                    // Update statistics
+                    const stats = this.raplData.stats[name];
+                    if (stats.min === null || avgPower < stats.min) stats.min = avgPower;
+                    if (stats.max === null || avgPower > stats.max) stats.max = avgPower;
+                    stats.sum += avgPower;
+                    stats.count++;
+                    stats.current = avgPower;
+                    
                     raplPower[name] = {
-                        power: 0,
-                        energy: parseInt(energyStr) / 1000000,
+                        power: avgPower,
+                        energy: energy / 1000000, // Convert to joules
                         stats: {
-                            current: 0,
-                            min: 0,
-                            max: 0,
-                            avg: 0
+                            current: stats.current,
+                            min: stats.min,
+                            max: stats.max,
+                            avg: stats.sum / stats.count
                         }
                     };
                 }
+                
+                // Update previous values
+                this.raplData.previousEnergy[name] = energy;
+                this.raplData.previousTime[name] = currentTime;
             }
         } catch (error) {
             // Silently handle errors - RAPL data is optional
         }
-
+        
         return raplPower;
     }
 
     updateStatsJS(key, value) {
-        // This would be the existing updateSimpleStat logic
-        // For now, do nothing as placeholder
+        if (value === null || value === undefined || isNaN(value)) {
+            return;
+        }
+        
+        if (!this.simpleStats) {
+            this.simpleStats = {};
+        }
+        
+        if (!this.simpleStats[key]) {
+            this.simpleStats[key] = {
+                min: value,
+                max: value,
+                sum: value,
+                count: 1,
+                current: value
+            };
+        } else {
+            this.simpleStats[key].min = Math.min(this.simpleStats[key].min, value);
+            this.simpleStats[key].max = Math.max(this.simpleStats[key].max, value);
+            this.simpleStats[key].sum += value;
+            this.simpleStats[key].count++;
+            this.simpleStats[key].current = value;
+        }
     }
 
     getStatsJS() {
-        // This would be the existing getSimpleStats logic
-        // For now, return empty object as placeholder
-        return {};
+        // Use the main.js simpleStats object
+        const result = {};
+        for (const [key, stat] of Object.entries(this.simpleStats || {})) {
+            result[key] = {
+                current: stat.current,
+                min: stat.min,
+                max: stat.max,
+                avg: stat.sum / stat.count
+            };
+        }
+        return result;
     }
 }
 

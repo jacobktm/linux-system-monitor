@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <algorithm>
+#include <chrono>
 
 SystemMonitor::SystemMonitor() {
     // Initialize statistics
@@ -212,6 +213,116 @@ std::vector<SensorData> SystemMonitor::getRAPLPower() {
     }
     
     return sensors;
+}
+
+std::vector<PowerData> SystemMonitor::getRAPLPowerCalculated() {
+    std::vector<PowerData> powerData;
+    
+    // Read from /sys/class/powercap/intel-rapl
+    if (!fileExists("/sys/class/powercap/intel-rapl")) {
+        return powerData;
+    }
+    
+    std::vector<std::string> raplDirs = readDirectory("/sys/class/powercap/intel-rapl/");
+    uint64_t currentTime = getCurrentTimeMicroseconds();
+    
+    for (const auto& dir : raplDirs) {
+        if (dir.find("intel-rapl:") == 0) {
+            std::string basePath = "/sys/class/powercap/intel-rapl/" + dir;
+            std::string namePath = basePath + "/name";
+            std::string energyPath = basePath + "/energy_uj";
+            
+            if (fileExists(namePath) && fileExists(energyPath)) {
+                std::string name = readFile(namePath);
+                std::string energyStr = readFile(energyPath);
+                
+                if (!name.empty() && !energyStr.empty()) {
+                    if (name.back() == '\n') name.pop_back();
+                    
+                    uint64_t energy = std::stoull(energyStr);
+                    
+                    // Initialize if first time
+                    if (previous_energy_.find(name) == previous_energy_.end()) {
+                        previous_energy_[name] = energy;
+                        previous_time_[name] = currentTime;
+                        power_readings_[name] = std::vector<double>();
+                        min_power_[name] = 0.0;
+                        max_power_[name] = 0.0;
+                        sum_power_[name] = 0.0;
+                        count_power_[name] = 0;
+                        continue;
+                    }
+                    
+                    // Calculate power
+                    uint64_t timeDelta = currentTime - previous_time_[name];
+                    uint64_t energyDelta = energy - previous_energy_[name];
+                    
+                    // Handle energy counter overflow (32-bit counter wraps around at ~2^32)
+                    const uint64_t MAX_ENERGY = 1ULL << 32;
+                    if (energyDelta > MAX_ENERGY / 2) {
+                        energyDelta = energy + (MAX_ENERGY - previous_energy_[name]);
+                    }
+                    
+                    double powerWatts = 0.0;
+                    if (timeDelta > 0) {
+                        // Convert microjoules to watts: (μJ / μs) / 1,000,000 = J/s = W
+                        powerWatts = (double)energyDelta / (double)timeDelta / 1000000.0;
+                    }
+                    
+                    // Filter reasonable values
+                    if (timeDelta > 100000 && timeDelta < 10000000 && // 0.1-10 seconds
+                        powerWatts >= 0.0 && powerWatts < 1000.0) {
+                        
+                        // Store reading
+                        power_readings_[name].push_back(powerWatts);
+                        if (power_readings_[name].size() > 100) {
+                            power_readings_[name].erase(power_readings_[name].begin());
+                        }
+                        
+                        // Calculate rolling average (last 10 readings)
+                        double avgPower = 0.0;
+                        int count = std::min(10, (int)power_readings_[name].size());
+                        for (int i = std::max(0, (int)power_readings_[name].size() - count); 
+                             i < (int)power_readings_[name].size(); i++) {
+                            avgPower += power_readings_[name][i];
+                        }
+                        avgPower /= count;
+                        
+                        // Update statistics
+                        if (min_power_[name] == 0.0 || avgPower < min_power_[name]) {
+                            min_power_[name] = avgPower;
+                        }
+                        if (avgPower > max_power_[name]) {
+                            max_power_[name] = avgPower;
+                        }
+                        sum_power_[name] += avgPower;
+                        count_power_[name]++;
+                        
+                        PowerData power;
+                        power.name = name;
+                        power.power = avgPower;
+                        power.energy = (double)energy / 1000000.0; // Convert to joules
+                        power.min_power = min_power_[name];
+                        power.max_power = max_power_[name];
+                        power.avg_power = sum_power_[name] / count_power_[name];
+                        powerData.push_back(power);
+                    }
+                    
+                    // Update previous values
+                    previous_energy_[name] = energy;
+                    previous_time_[name] = currentTime;
+                }
+            }
+        }
+    }
+    
+    return powerData;
+}
+
+uint64_t SystemMonitor::getCurrentTimeMicroseconds() {
+    auto now = std::chrono::high_resolution_clock::now();
+    auto duration = now.time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
 }
 
 void SystemMonitor::updateStats(const std::string& key, double value) {

@@ -741,7 +741,7 @@ async function getDDR5MemoryTemps() {
 // Intel RAPL power monitoring
 let raplData = {
   previousEnergy: {},
-  previousTime: 0,
+  previousTime: {},
   powerReadings: {},
   stats: {}
 };
@@ -753,24 +753,34 @@ async function getIntelRAPLPower() {
   try {
     // Check if Intel RAPL is available
     const raplPath = '/sys/class/powercap/intel-rapl';
+    console.log('🔍 RAPL: Checking Intel RAPL availability...');
     if (!fs.existsSync(raplPath)) {
+      console.log('❌ RAPL: Intel RAPL not available at', raplPath);
       return raplPower;
     }
+    console.log('✅ RAPL: Intel RAPL path exists:', raplPath);
     
     const raplDirs = fs.readdirSync(raplPath).filter(d => d.startsWith('intel-rapl:'));
+    console.log('🔍 RAPL: Found RAPL directories:', raplDirs);
     
     for (const raplDir of raplDirs) {
       const basePath = `${raplPath}/${raplDir}`;
       const name = readSensorFile(`${basePath}/name`);
+      console.log(`🔍 RAPL: Processing ${raplDir} (${name})`);
       
-      if (!name) continue;
+      if (!name) {
+        console.log(`⚠️ RAPL: No name for ${raplDir}, skipping`);
+        continue;
+      }
       
       // Read energy in microjoules
       const energyStr = readSensorFile(`${basePath}/energy_uj`);
       if (!energyStr) {
+        console.log(`❌ RAPL: Cannot read energy for ${name} (${basePath}/energy_uj)`);
         // If we can't read energy, skip this RAPL domain
         continue;
       }
+      console.log(`✅ RAPL: Read energy for ${name}: ${energyStr} μJ`);
       
       const energy = parseInt(energyStr);
       const currentTime = Date.now();
@@ -778,7 +788,7 @@ async function getIntelRAPLPower() {
       // Initialize previous data if not exists
       if (!raplData.previousEnergy[name]) {
         raplData.previousEnergy[name] = energy;
-        raplData.previousTime = currentTime;
+        raplData.previousTime[name] = currentTime;
         raplData.powerReadings[name] = [];
         raplData.stats[name] = {
           min: null,
@@ -787,18 +797,30 @@ async function getIntelRAPLPower() {
           count: 0,
           current: 0
         };
+        console.log(`🔧 RAPL: Initialized ${name} with energy: ${energy} μJ`);
         continue;
       }
       
       // Calculate power consumption
-      const timeDelta = (currentTime - raplData.previousTime) / 1000; // seconds
-      const energyDelta = energy - raplData.previousEnergy[name]; // microjoules
+      const timeDelta = (currentTime - raplData.previousTime[name]) / 1000; // seconds
+      let energyDelta = energy - raplData.previousEnergy[name]; // microjoules
+      
+      // Handle energy counter overflow (32-bit counter wraps around at ~2^32)
+      // Intel RAPL energy counters are typically 32-bit, so they wrap at 2^32 μJ
+      const MAX_ENERGY = Math.pow(2, 32); // 4,294,967,296 μJ
+      if (energyDelta < 0) {
+        // Counter wrapped around
+        energyDelta = energy + (MAX_ENERGY - raplData.previousEnergy[name]);
+        console.log(`🔄 RAPL: Energy counter wrapped for ${name}, adjusted delta: ${energyDelta} μJ`);
+      }
       
       // Convert to watts: microjoules / seconds / 1,000,000
       let powerWatts = energyDelta / (timeDelta * 1000000);
       
+      console.log(`📊 RAPL: ${name} - Time: ${timeDelta.toFixed(3)}s, Energy: ${energyDelta} μJ, Power: ${powerWatts.toFixed(3)}W`);
+      
       // Outlier filtering
-      if (timeDelta > 0 && timeDelta < 10 && // Reasonable time delta (0-10 seconds)
+      if (timeDelta > 0.1 && timeDelta < 10 && // Reasonable time delta (0.1-10 seconds)
           energyDelta >= 0 && // Energy should not decrease (no negative power)
           powerWatts >= 0 && powerWatts < 1000) { // Reasonable power range (0-1000W)
         
@@ -832,13 +854,29 @@ async function getIntelRAPLPower() {
             avg: stats.sum / stats.count
           }
         };
+        
+        console.log(`⚡ RAPL: ${name} = ${avgPower.toFixed(2)}W [${stats.min?.toFixed(2) || 'N/A'} / ${stats.max?.toFixed(2) || 'N/A'} / ${(stats.sum / stats.count).toFixed(2)}]`);
+        
+        // Add explanation for different RAPL domains
+        if (name.toLowerCase().includes('package')) {
+          console.log(`   📋 Package power includes: CPU cores + uncore + integrated graphics`);
+        } else if (name.toLowerCase().includes('core')) {
+          console.log(`   🔥 Core power: CPU cores only`);
+        } else if (name.toLowerCase().includes('uncore')) {
+          console.log(`   🔧 Uncore power: Memory controller, cache, etc.`);
+        } else if (name.toLowerCase().includes('gpu')) {
+          console.log(`   🎮 GPU power: Integrated graphics`);
+        }
+      } else {
+        console.log(`⚠️ RAPL: Filtered out reading for ${name} - Time: ${timeDelta.toFixed(3)}s, Energy: ${energyDelta} μJ, Power: ${powerWatts.toFixed(3)}W`);
       }
       
       // Update previous values
       raplData.previousEnergy[name] = energy;
-      raplData.previousTime = currentTime;
+      raplData.previousTime[name] = currentTime;
     }
   } catch (error) {
+    console.log('❌ RAPL: Error accessing Intel RAPL:', error.message);
     // Silently handle errors - RAPL data is optional
   }
   
@@ -996,9 +1034,13 @@ async function getDiskTemperatures() {
 ipcMain.handle('get-system-data', async () => {
   // Add initialization delay for first few calls to allow GPU detection to stabilize
   if (!appInitialized) {
+    console.log('🔧 INIT: Adding 1s delay for GPU detection stabilization...');
     await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
     appInitialized = true;
+    console.log('🔧 INIT: Initialization delay complete');
   }
+  
+  console.log('📡 IPC: Handler called - starting data fetch');
   
   try {
     const now = Date.now();
@@ -1007,7 +1049,7 @@ ipcMain.handle('get-system-data', async () => {
     
     // Update static data cache if needed (every 30s)
     if (needsStaticUpdate) {
-      console.log('Updating static data cache...');
+      console.log('🔄 CACHE: Updating static data cache...');
       try {
         const [cpu, osInfo, diskLayout] = await Promise.all([
           si.cpu(),
@@ -1018,7 +1060,7 @@ ipcMain.handle('get-system-data', async () => {
         staticDataCache.osInfo = osInfo;
         staticDataCache.diskLayout = diskLayout;
         staticDataCache.lastUpdate = now;
-        console.log('Static data cache updated successfully');
+        console.log('✅ CACHE: Static data cache updated successfully');
       } catch (error) {
         console.error('Error updating static data cache:', error);
         throw error;
@@ -1027,7 +1069,7 @@ ipcMain.handle('get-system-data', async () => {
     
     // Update medium-speed data cache if needed (every 1s)
     if (needsMediumUpdate) {
-      console.log('Updating medium data cache...');
+      console.log('🔄 CACHE: Updating medium data cache...');
       try {
         const [battery, fans, power, raplPower, diskTemps, cpuTemps, systemTemps, ddr5Temps] = await Promise.all([
           si.battery(),
@@ -1048,7 +1090,7 @@ ipcMain.handle('get-system-data', async () => {
         mediumDataCache.systemTemps = systemTemps;
         mediumDataCache.ddr5Temps = ddr5Temps;
         mediumDataCache.lastUpdate = now;
-        console.log('Medium data cache updated successfully');
+        console.log('✅ CACHE: Medium data cache updated successfully');
       } catch (error) {
         console.error('Error updating medium data cache:', error);
         throw error;
@@ -1056,6 +1098,7 @@ ipcMain.handle('get-system-data', async () => {
     }
     
     // Fetch fast-updating data (every 100ms) - only the essentials
+    console.log('⚡ FAST: Fetching fast-updating data...');
     let cpuLoad, cpuTemp, cpuFreqs, mem, diskIO, perDiskIO, gpuData, networkStats, diskSmart;
     
     try {
@@ -1081,8 +1124,9 @@ ipcMain.handle('get-system-data', async () => {
     
       // Get SMART data (cached for 60s)
       diskSmart = await getDiskSMARTData();
+      console.log('✅ FAST: Fast data fetched successfully');
     } catch (error) {
-      console.error('Error fetching fast data:', error);
+      console.error('❌ FAST: Error fetching fast data:', error);
       throw error;
     }
     
@@ -1201,6 +1245,7 @@ ipcMain.handle('get-system-data', async () => {
     };
     
     // Track stats with simple system
+    console.log('📊 STATS: Tracking statistics...');
     updateSimpleStat('cpu_usage', result.cpu.currentLoad);
     updateSimpleStat('mem_percent', result.memory.usedPercent);
     
@@ -1241,10 +1286,14 @@ ipcMain.handle('get-system-data', async () => {
     
     // Track Intel RAPL power stats
     if (result.raplPower) {
+      console.log('⚡ RAPL: Tracking Intel RAPL power stats:', Object.keys(result.raplPower));
       Object.entries(result.raplPower).forEach(([name, raplData]) => {
         const key = `rapl_${name.replace(/[^a-zA-Z0-9]/g, '_')}_power`;
         updateSimpleStat(key, raplData.power);
+        console.log(`⚡ RAPL: ${name} = ${raplData.power}W`);
       });
+    } else {
+      console.log('⚠️ RAPL: No Intel RAPL power data available');
     }
     
     // Track fan speeds
@@ -1284,6 +1333,8 @@ ipcMain.handle('get-system-data', async () => {
     // Add statistics to response
     const stats = getSimpleStats();
     result.stats = stats;
+    console.log(`📊 STATS: Generated ${Object.keys(stats).length} statistics`);
+    console.log('✅ IPC: Data fetch completed successfully');
     return result;
   } catch (error) {
     console.error('Error fetching system data:', error);

@@ -49,6 +49,13 @@ class NativeSystemMonitor {
         return systemMonitor.getRAPLPower();
     }
 
+    getRAPLPowerCalculated() {
+        if (!this.initialized) {
+            throw new Error('Native system monitor not initialized');
+        }
+        return systemMonitor.getRAPLPowerCalculated();
+    }
+
     updateStats(key, value) {
         if (!this.initialized) {
             throw new Error('Native system monitor not initialized');

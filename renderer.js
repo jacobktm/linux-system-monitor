@@ -11,9 +11,11 @@ function formatBytes(bytes, decimals = 2) {
 // Format stat with min/max/avg
 function formatStat(current, stats, key, suffix = '%', decimals = 1) {
   if (!stats || !stats[key]) {
+    console.log(`📊 FORMAT: No stats for ${key}, returning plain value`);
     return `<span class="current-value">${current.toFixed(decimals)}${suffix}</span>`;
   }
   const stat = stats[key];
+  console.log(`📊 FORMAT: ${key} = ${current.toFixed(decimals)}${suffix} [${stat.min.toFixed(decimals)}/${stat.max.toFixed(decimals)}/${stat.avg.toFixed(decimals)}]`);
   return `<span class="current-value">${current.toFixed(decimals)}${suffix}</span><span class="stat-range" title="Min/Max/Avg">[${stat.min.toFixed(decimals)} / ${stat.max.toFixed(decimals)} / ${stat.avg.toFixed(decimals)}]</span>`;
 }
 
@@ -626,10 +628,19 @@ function updateSystemInfo(data) {
   systemInfo.textContent = `${data.system.distro} ${data.system.release} • Kernel ${data.system.kernel} • Uptime: ${uptime}`;
 }
 
+// Throttle IPC calls to prevent overwhelming the main process
+let isUpdating = false;
+
 // Update all system data
 async function updateSystemData() {
+  if (isUpdating) {
+    return; // Skip if already updating
+  }
+  
+  isUpdating = true;
   try {
     const data = await window.electron.getSystemData();
+    console.log('🖥️ RENDERER: Received data, stats count:', data.stats ? Object.keys(data.stats).length : 0);
     
     // Stats are being received and processed
     
@@ -652,6 +663,8 @@ async function updateSystemData() {
     document.getElementById('update-time').textContent = `Last update: ${now.toLocaleTimeString()}${statsStatus}`;
   } catch (error) {
     console.error('Error updating system data:', error);
+  } finally {
+    isUpdating = false;
   }
 }
 
@@ -663,16 +676,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial update
   updateSystemData();
   
-  // Update every 1000ms for 1 Hz refresh rate (more reasonable for system monitoring)
+  // Update every 100ms for 10 Hz refresh rate (high-performance monitoring)
   setInterval(() => {
     updateSystemData();
     updateCount++;
     
-    // Hint for cleanup every 60 updates (~1 minute at 1 Hz)
-    if (updateCount >= 60) {
+    // Hint for cleanup every 600 updates (~1 minute at 10 Hz)
+    if (updateCount >= 600) {
       updateCount = 0;
       // Let browser handle its own memory management
     }
-  }, 1000); // 1000ms = 1 Hz
+  }, 100); // 100ms = 10 Hz
 });
 

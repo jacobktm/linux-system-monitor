@@ -97,6 +97,35 @@ NAN_METHOD(GetRAPLPower) {
     info.GetReturnValue().Set(result);
 }
 
+// Get RAPL power with calculations
+NAN_METHOD(GetRAPLPowerCalculated) {
+    if (g_monitor == nullptr) {
+        return Nan::ThrowError("SystemMonitor not initialized");
+    }
+    
+    std::vector<PowerData> powerData = g_monitor->getRAPLPowerCalculated();
+    Local<Array> result = Nan::New<Array>(powerData.size());
+    
+    for (size_t i = 0; i < powerData.size(); i++) {
+        Local<Object> power = Nan::New<Object>();
+        Nan::Set(power, Nan::New("name").ToLocalChecked(), Nan::New<String>(powerData[i].name).ToLocalChecked());
+        Nan::Set(power, Nan::New("power").ToLocalChecked(), Nan::New<Number>(powerData[i].power));
+        Nan::Set(power, Nan::New("energy").ToLocalChecked(), Nan::New<Number>(powerData[i].energy));
+        
+        // Stats object
+        Local<Object> stats = Nan::New<Object>();
+        Nan::Set(stats, Nan::New("current").ToLocalChecked(), Nan::New<Number>(powerData[i].power));
+        Nan::Set(stats, Nan::New("min").ToLocalChecked(), Nan::New<Number>(powerData[i].min_power));
+        Nan::Set(stats, Nan::New("max").ToLocalChecked(), Nan::New<Number>(powerData[i].max_power));
+        Nan::Set(stats, Nan::New("avg").ToLocalChecked(), Nan::New<Number>(powerData[i].avg_power));
+        
+        Nan::Set(power, Nan::New("stats").ToLocalChecked(), stats);
+        Nan::Set(result, i, power);
+    }
+    
+    info.GetReturnValue().Set(result);
+}
+
 // Update statistics
 NAN_METHOD(UpdateStats) {
     if (g_monitor == nullptr) {
@@ -181,6 +210,8 @@ NAN_MODULE_INIT(Init) {
              Nan::GetFunction(Nan::New<FunctionTemplate>(GetDDR5Temperatures)).ToLocalChecked());
     Nan::Set(target, Nan::New("getRAPLPower").ToLocalChecked(),
              Nan::GetFunction(Nan::New<FunctionTemplate>(GetRAPLPower)).ToLocalChecked());
+    Nan::Set(target, Nan::New("getRAPLPowerCalculated").ToLocalChecked(),
+             Nan::GetFunction(Nan::New<FunctionTemplate>(GetRAPLPowerCalculated)).ToLocalChecked());
     Nan::Set(target, Nan::New("updateStats").ToLocalChecked(),
              Nan::GetFunction(Nan::New<FunctionTemplate>(UpdateStats)).ToLocalChecked());
     Nan::Set(target, Nan::New("getStats").ToLocalChecked(),
