@@ -55,27 +55,39 @@ function updateCPU(data) {
     : cpu.speed;
   document.getElementById('cpu-freq').innerHTML = formatStat(avgFreq, stats, 'cpu_avg_freq', ' MHz', 0);
   
-  // Update CPU power (Intel RAPL) - only show if data is available
+  // Update CPU power (Intel RAPL) - show last valid value when current data unavailable
   const cpuPowerElement = document.getElementById('cpu-power');
   const powerMetric = document.querySelector('.cpu-card .metric:has(#cpu-power)');
   
   if (data.raplPower && (data.raplPower['package-0'] || data.raplPower['core'])) {
-    // Show the power metric
+    // Show the power metric when we have valid RAPL data
     if (powerMetric) powerMetric.style.display = '';
     
     if (data.raplPower['package-0']) {
       const packagePower = data.raplPower['package-0'].power;
       const powerKey = 'rapl_package_0_power';
       cpuPowerElement.innerHTML = formatStat(packagePower, stats, powerKey, ' W', 1);
+      // Store the last valid value for fallback
+      cpuPowerElement.dataset.lastValidValue = packagePower;
     } else if (data.raplPower['core']) {
       // Fallback to core power if package power not available
       const corePower = data.raplPower['core'].power;
       const powerKey = 'rapl_core_power';
       cpuPowerElement.innerHTML = formatStat(corePower, stats, powerKey, ' W', 1);
+      // Store the last valid value for fallback
+      cpuPowerElement.dataset.lastValidValue = corePower;
     }
   } else {
-    // Hide the power metric completely
-    if (powerMetric) powerMetric.style.display = 'none';
+    // Show last valid value if available, otherwise hide the metric
+    const lastValidValue = cpuPowerElement.dataset.lastValidValue;
+    if (lastValidValue && parseFloat(lastValidValue) > 0) {
+      // Show the metric with last valid value
+      if (powerMetric) powerMetric.style.display = '';
+      cpuPowerElement.innerHTML = `<span class="current-value">${parseFloat(lastValidValue).toFixed(1)} W</span><span class="stat-range" style="opacity: 0.7;">[Last valid]</span>`;
+    } else {
+      // Hide the power metric completely when no valid data is available
+      if (powerMetric) powerMetric.style.display = 'none';
+    }
   }
   
   

@@ -24,6 +24,11 @@ function updateSimpleStat(key, value) {
     return;
   }
   
+  // Additional validation for power values - only track reasonable values
+  if (key.includes('power') && (value < 0 || value > 1000)) {
+    return;
+  }
+  
   // Use hybrid monitor if available
   if (hybridMonitor) {
     hybridMonitor.updateStats(key, value);
@@ -37,7 +42,8 @@ function updateSimpleStat(key, value) {
       max: value,
       sum: value,
       count: 1,
-      current: value
+      current: value,
+      validCount: 1  // Track only valid readings
     };
   } else {
     simpleStats[key].min = Math.min(simpleStats[key].min, value);
@@ -45,6 +51,7 @@ function updateSimpleStat(key, value) {
     simpleStats[key].sum += value;
     simpleStats[key].count++;
     simpleStats[key].current = value;
+    simpleStats[key].validCount++;
   }
 }
 
@@ -61,7 +68,7 @@ function getSimpleStats() {
       current: stat.current,
       min: stat.min,
       max: stat.max,
-      avg: stat.sum / stat.count
+      avg: stat.validCount > 0 ? stat.sum / stat.validCount : 0
     };
   }
   return result;
@@ -738,16 +745,10 @@ async function getDDR5MemoryTemps() {
   return memoryTemps;
 }
 
-// Intel RAPL power monitoring
-let raplData = {
-  previousEnergy: {},
-  previousTime: {},
-  powerReadings: {},
-  stats: {}
-};
+// Intel RAPL power monitoring now handled by native C++ implementation
 
-// Helper function to get Intel RAPL power data
-async function getIntelRAPLPower() {
+// Intel RAPL power calculation now handled by native C++ implementation
+async function getIntelRAPLPower_DEPRECATED() {
   const raplPower = {};
   
   try {
@@ -1071,11 +1072,10 @@ ipcMain.handle('get-system-data', async () => {
     if (needsMediumUpdate) {
       console.log('🔄 CACHE: Updating medium data cache...');
       try {
-        const [battery, fans, power, raplPower, diskTemps, cpuTemps, systemTemps, ddr5Temps] = await Promise.all([
+        const [battery, fans, power, diskTemps, cpuTemps, systemTemps, ddr5Temps] = await Promise.all([
           si.battery(),
           getFanSpeeds(),
           getPowerConsumption(),
-          hybridMonitor.getIntelRAPLPower(),
           getDiskTemperatures(),
           hybridMonitor.getCPUTemperatures(),
           getSystemTemperatures(),
@@ -1084,7 +1084,7 @@ ipcMain.handle('get-system-data', async () => {
         mediumDataCache.battery = battery;
         mediumDataCache.fans = fans;
         mediumDataCache.power = power;
-        mediumDataCache.raplPower = raplPower;
+        // RAPL power now handled in fast cache (10Hz)
         mediumDataCache.diskTemps = diskTemps;
         mediumDataCache.cpuTemps = cpuTemps;
         mediumDataCache.systemTemps = systemTemps;
@@ -1099,7 +1099,7 @@ ipcMain.handle('get-system-data', async () => {
     
     // Fetch fast-updating data (every 100ms) - only the essentials
     console.log('⚡ FAST: Fetching fast-updating data...');
-    let cpuLoad, cpuTemp, cpuFreqs, mem, diskIO, perDiskIO, gpuData, networkStats, diskSmart;
+    let cpuLoad, cpuTemp, cpuFreqs, mem, diskIO, perDiskIO, gpuData, networkStats, diskSmart, raplPower;
     
     try {
       [
@@ -1110,7 +1110,8 @@ ipcMain.handle('get-system-data', async () => {
         diskIO,
         perDiskIO,
         gpuData,
-        networkStats
+        networkStats,
+        raplPower
       ] = await Promise.all([
         si.currentLoad(),
         si.cpuTemperature(),
@@ -1119,7 +1120,8 @@ ipcMain.handle('get-system-data', async () => {
         si.disksIO(),
         getPerDiskIORates(),
         getGPUData(),
-        si.networkStats()
+        si.networkStats(),
+        hybridMonitor.getIntelRAPLPower() // Move RAPL to 10Hz fast updates
       ]);
     
       // Get SMART data (cached for 60s)
@@ -1137,7 +1139,7 @@ ipcMain.handle('get-system-data', async () => {
     const battery = mediumDataCache.battery || await si.battery();
     const fans = mediumDataCache.fans || [];
     const power = mediumDataCache.power || [];
-    const raplPower = mediumDataCache.raplPower || {};
+    // RAPL power now comes from fast cache (10Hz updates)
     const diskTemps = mediumDataCache.diskTemps || [];
     const cpuTemps = mediumDataCache.cpuTemps || [];
     const systemTemps = mediumDataCache.systemTemps || [];
@@ -1286,14 +1288,10 @@ ipcMain.handle('get-system-data', async () => {
     
     // Track Intel RAPL power stats
     if (result.raplPower) {
-      console.log('⚡ RAPL: Tracking Intel RAPL power stats:', Object.keys(result.raplPower));
       Object.entries(result.raplPower).forEach(([name, raplData]) => {
         const key = `rapl_${name.replace(/[^a-zA-Z0-9]/g, '_')}_power`;
         updateSimpleStat(key, raplData.power);
-        console.log(`⚡ RAPL: ${name} = ${raplData.power}W`);
       });
-    } else {
-      console.log('⚠️ RAPL: No Intel RAPL power data available');
     }
     
     // Track fan speeds

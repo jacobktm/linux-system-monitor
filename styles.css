@@ -153,13 +153,14 @@ header h1 {
   flex: 1;
 }
 
-.metric .value .stat-range {
+.metric .value .stat-range,
+span .stat-range {
   flex-shrink: 0;
   margin-left: 15px;
-  font-size: 0.4em;
-  color: #666;
-  font-weight: normal;
-  opacity: 0.7;
+  font-size: 0.4em !important;
+  color: #666 !important;
+  font-weight: normal !important;
+  opacity: 0.7 !important;
   white-space: nowrap;
   line-height: 1;
   overflow: hidden;
@@ -284,6 +285,17 @@ header h1 {
   color: #fff;
 }
 
+.temp-item .temp-value .stat-range,
+.ddr5-temp-item .stat-range {
+  font-size: 0.4em !important;
+  color: #666 !important;
+  font-weight: normal !important;
+  opacity: 0.7 !important;
+  margin-left: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .disk-list {
   margin-top: 15px;
 }
@@ -305,6 +317,17 @@ header h1 {
 .disk-item .disk-details {
   font-size: 0.85em;
   color: #b0b0b0;
+}
+
+.disk-item .disk-details .stat-range,
+.disk-item span .stat-range {
+  font-size: 0.4em !important;
+  color: #666 !important;
+  font-weight: normal !important;
+  opacity: 0.7 !important;
+  margin-left: 8px !important;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .gpu-info {
@@ -355,6 +378,18 @@ header h1 {
 .network-item .network-value {
   font-weight: bold;
   color: #fff;
+}
+
+.fan-item .fan-value .stat-range,
+.power-item .power-value .stat-range,
+.network-item .network-value .stat-range {
+  font-size: 0.4em !important;
+  color: #666 !important;
+  font-weight: normal !important;
+  opacity: 0.7 !important;
+  margin-left: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .battery-info {

@@ -93,9 +93,7 @@ class HybridSystemMonitor {
         if (this.useNative) {
             try {
                 // Use the new native C implementation with power calculations
-                console.log('🔧 RAPL: Using native C++ implementation');
                 const powerData = this.nativeMonitor.getRAPLPowerCalculated();
-                console.log('🔧 RAPL: Native C++ returned', powerData.length, 'power readings');
                 const raplPower = {};
                 powerData.forEach(power => {
                     raplPower[power.name] = {
@@ -109,7 +107,14 @@ class HybridSystemMonitor {
                         }
                     };
                 });
-                return raplPower;
+                
+                // Store last valid values for persistence
+                if (Object.keys(raplPower).length > 0) {
+                    this.lastValidRAPLData = raplPower;
+                }
+                
+                // Return current data if available, otherwise return last valid data
+                return Object.keys(raplPower).length > 0 ? raplPower : (this.lastValidRAPLData || {});
             } catch (error) {
                 console.warn('Native RAPL power calculated failed, falling back to JavaScript:', error.message);
                 console.warn('Error details:', error);
@@ -119,7 +124,15 @@ class HybridSystemMonitor {
         
         // JavaScript fallback - use existing function
         console.log('🔧 RAPL: Using JavaScript fallback (native not available)');
-        return await this.getIntelRAPLPowerJS();
+        const jsResult = await this.getIntelRAPLPowerJS();
+        
+        // Store last valid values for persistence
+        if (Object.keys(jsResult).length > 0) {
+            this.lastValidRAPLData = jsResult;
+        }
+        
+        // Return current data if available, otherwise return last valid data
+        return Object.keys(jsResult).length > 0 ? jsResult : (this.lastValidRAPLData || {});
     }
 
     // Statistics - use native if available
@@ -136,6 +149,36 @@ class HybridSystemMonitor {
         
         // JavaScript fallback - use existing function
         this.updateStatsJS(key, value);
+    }
+
+    // Check if last valid value exists
+    hasLastValidValue(key) {
+        if (this.useNative) {
+            try {
+                return this.nativeMonitor.hasLastValidValue(key);
+            } catch (error) {
+                console.warn('Native hasLastValidValue failed, falling back to JavaScript:', error.message);
+                this.useNative = false;
+            }
+        }
+        
+        // JavaScript fallback
+        return this.simpleStats && this.simpleStats[key] && this.simpleStats[key].current !== undefined;
+    }
+
+    // Get last valid value
+    getLastValidValue(key) {
+        if (this.useNative) {
+            try {
+                return this.nativeMonitor.getLastValidValue(key);
+            } catch (error) {
+                console.warn('Native getLastValidValue failed, falling back to JavaScript:', error.message);
+                this.useNative = false;
+            }
+        }
+        
+        // JavaScript fallback
+        return this.simpleStats && this.simpleStats[key] ? this.simpleStats[key].current : 0;
     }
 
     getStats() {
@@ -394,6 +437,11 @@ class HybridSystemMonitor {
             return;
         }
         
+        // Additional validation for power values - only track reasonable values
+        if (key.includes('power') && (value < 0 || value > 1000)) {
+            return;
+        }
+        
         if (!this.simpleStats) {
             this.simpleStats = {};
         }
@@ -404,7 +452,8 @@ class HybridSystemMonitor {
                 max: value,
                 sum: value,
                 count: 1,
-                current: value
+                current: value,
+                validCount: 1  // Track only valid readings
             };
         } else {
             this.simpleStats[key].min = Math.min(this.simpleStats[key].min, value);
@@ -412,6 +461,7 @@ class HybridSystemMonitor {
             this.simpleStats[key].sum += value;
             this.simpleStats[key].count++;
             this.simpleStats[key].current = value;
+            this.simpleStats[key].validCount++;
         }
     }
 
@@ -423,7 +473,7 @@ class HybridSystemMonitor {
                 current: stat.current,
                 min: stat.min,
                 max: stat.max,
-                avg: stat.sum / stat.count
+                avg: stat.validCount > 0 ? stat.sum / stat.validCount : 0
             };
         }
         return result;

@@ -34,7 +34,9 @@ struct SystemStats {
     std::map<std::string, double> max_values;
     std::map<std::string, double> sum_values;
     std::map<std::string, int> count_values;
+    std::map<std::string, int> valid_count_values;  // Track only valid readings
     std::map<std::string, double> current_values;
+    std::map<std::string, double> last_valid_values;  // Store last valid values for persistence
 };
 
 // Main class for system monitoring
@@ -54,6 +56,8 @@ public:
     void updateStats(const std::string& key, double value);
     SystemStats getStats();
     void resetStats();
+    bool hasLastValidValue(const std::string& key);
+    double getLastValidValue(const std::string& key);
     
 private:
     SystemStats stats_;

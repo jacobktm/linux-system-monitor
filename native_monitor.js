@@ -76,6 +76,20 @@ class NativeSystemMonitor {
         }
         return systemMonitor.resetStats();
     }
+
+    hasLastValidValue(key) {
+        if (!this.initialized) {
+            throw new Error('Native system monitor not initialized');
+        }
+        return systemMonitor.hasLastValidValue(key);
+    }
+
+    getLastValidValue(key) {
+        if (!this.initialized) {
+            throw new Error('Native system monitor not initialized');
+        }
+        return systemMonitor.getLastValidValue(key);
+    }
 }
 
 module.exports = NativeSystemMonitor;

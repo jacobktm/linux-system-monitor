@@ -170,10 +170,11 @@ NAN_METHOD(GetStats) {
             Nan::Set(statObj, Nan::New("max").ToLocalChecked(), Nan::New<Number>(stats.max_values[key]));
         }
         
-        // Set avg value if it exists
+        // Set avg value if it exists - use valid_count for accurate average
         if (stats.sum_values.find(key) != stats.sum_values.end() && 
-            stats.count_values.find(key) != stats.count_values.end()) {
-            double avg = stats.sum_values[key] / stats.count_values[key];
+            stats.valid_count_values.find(key) != stats.valid_count_values.end() &&
+            stats.valid_count_values[key] > 0) {
+            double avg = stats.sum_values[key] / stats.valid_count_values[key];
             Nan::Set(statObj, Nan::New("avg").ToLocalChecked(), Nan::New<Number>(avg));
         }
         
@@ -198,6 +199,36 @@ NAN_METHOD(ResetStats) {
     info.GetReturnValue().Set(Nan::New<Boolean>(true));
 }
 
+// Check if last valid value exists
+NAN_METHOD(HasLastValidValue) {
+    if (g_monitor == nullptr) {
+        return Nan::ThrowError("SystemMonitor not initialized");
+    }
+    
+    if (info.Length() < 1 || !info[0]->IsString()) {
+        return Nan::ThrowError("Expected string key");
+    }
+    
+    std::string key = std::string(*Nan::Utf8String(info[0]));
+    bool hasValue = g_monitor->hasLastValidValue(key);
+    info.GetReturnValue().Set(Nan::New<Boolean>(hasValue));
+}
+
+// Get last valid value
+NAN_METHOD(GetLastValidValue) {
+    if (g_monitor == nullptr) {
+        return Nan::ThrowError("SystemMonitor not initialized");
+    }
+    
+    if (info.Length() < 1 || !info[0]->IsString()) {
+        return Nan::ThrowError("Expected string key");
+    }
+    
+    std::string key = std::string(*Nan::Utf8String(info[0]));
+    double value = g_monitor->getLastValidValue(key);
+    info.GetReturnValue().Set(Nan::New<Number>(value));
+}
+
 // Module initialization
 NAN_MODULE_INIT(Init) {
     Nan::Set(target, Nan::New("initialize").ToLocalChecked(),
@@ -218,6 +249,10 @@ NAN_MODULE_INIT(Init) {
              Nan::GetFunction(Nan::New<FunctionTemplate>(GetStats)).ToLocalChecked());
     Nan::Set(target, Nan::New("resetStats").ToLocalChecked(),
              Nan::GetFunction(Nan::New<FunctionTemplate>(ResetStats)).ToLocalChecked());
+    Nan::Set(target, Nan::New("hasLastValidValue").ToLocalChecked(),
+             Nan::GetFunction(Nan::New<FunctionTemplate>(HasLastValidValue)).ToLocalChecked());
+    Nan::Set(target, Nan::New("getLastValidValue").ToLocalChecked(),
+             Nan::GetFunction(Nan::New<FunctionTemplate>(GetLastValidValue)).ToLocalChecked());
 }
 
 NODE_MODULE(system_monitor, Init)

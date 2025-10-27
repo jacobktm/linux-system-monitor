@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <limits>
 
 SystemMonitor::SystemMonitor() {
     // Initialize statistics
@@ -326,6 +328,17 @@ uint64_t SystemMonitor::getCurrentTimeMicroseconds() {
 }
 
 void SystemMonitor::updateStats(const std::string& key, double value) {
+    // Validate value - skip invalid values
+    if (value != value || value == std::numeric_limits<double>::infinity() || value == -std::numeric_limits<double>::infinity()) {
+        return;
+    }
+    
+    // Additional validation for power values
+    if (key.find("power") != std::string::npos && (value < 0.0 || value > 1000.0)) {
+        return;
+    }
+    
+    // Update statistics only for valid values
     if (stats_.min_values.find(key) == stats_.min_values.end() || value < stats_.min_values[key]) {
         stats_.min_values[key] = value;
     }
@@ -336,7 +349,9 @@ void SystemMonitor::updateStats(const std::string& key, double value) {
     
     stats_.sum_values[key] += value;
     stats_.count_values[key]++;
-    stats_.current_values[key] = value; // Track current value
+    stats_.valid_count_values[key]++;  // Track valid readings separately
+    stats_.current_values[key] = value;
+    stats_.last_valid_values[key] = value;  // Store as last valid value
 }
 
 SystemStats SystemMonitor::getStats() {
@@ -348,5 +363,19 @@ void SystemMonitor::resetStats() {
     stats_.max_values.clear();
     stats_.sum_values.clear();
     stats_.count_values.clear();
+    stats_.valid_count_values.clear();
     stats_.current_values.clear();
+    stats_.last_valid_values.clear();
+}
+
+bool SystemMonitor::hasLastValidValue(const std::string& key) {
+    return stats_.last_valid_values.find(key) != stats_.last_valid_values.end();
+}
+
+double SystemMonitor::getLastValidValue(const std::string& key) {
+    auto it = stats_.last_valid_values.find(key);
+    if (it != stats_.last_valid_values.end()) {
+        return it->second;
+    }
+    return 0.0;
 }
