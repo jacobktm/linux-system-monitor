@@ -206,11 +206,15 @@ build_native_addon() {
         npm run clean
     fi
     
-    # Build the native addon for Electron
-    npx electron-rebuild
+    # Build the native addon
+    npm run build
     
     if [ $? -eq 0 ]; then
         print_success "Native addon built successfully"
+        print_status "Native features enabled:"
+        print_status "  - High-performance statistics calculation"
+        print_status "  - Power monitor persistence"
+        print_status "  - Valid value filtering for accurate averages"
         
         # Test the native addon
         print_status "Testing native addon..."
