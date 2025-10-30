@@ -457,14 +457,19 @@ function getSystem76AcpiGPUTemp() {
           const label = readSensorFile(`${basePath}/temp${j}_label`) || `${name}_temp${j}`;
           
           const labelLower = label.toLowerCase();
+          // Check for GPU temp - look for "gpu" in label
           if (labelLower.includes('gpu')) {
-            return parseInt(temp) / 1000;
+            const tempValue = parseInt(temp) / 1000;
+            console.log(`🔍 system76_acpi: Found GPU temp sensor "${label}": ${tempValue}°C`);
+            return tempValue;
           }
           j++;
         }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('⚠️ system76_acpi: Error reading GPU temp:', e.message);
+  }
   return null;
 }
 
@@ -507,12 +512,17 @@ async function getGPUData() {
     }
   }
   
-  // If nvidia-smi didn't provide GPU temp, try system76_acpi
-  if (gpuData.length > 0 && (gpuData[0].temperatureGpu === null || gpuData[0].temperatureGpu === undefined)) {
+  // If nvidia-smi didn't provide GPU temp (null/undefined/0), try system76_acpi
+  if (gpuData.length > 0) {
     const sys76GpuTemp = getSystem76AcpiGPUTemp();
-    if (sys76GpuTemp !== null) {
-      gpuData[0].temperatureGpu = sys76GpuTemp;
-    }
+    gpuData.forEach((gpu, index) => {
+      const currentTemp = gpu.temperatureGpu;
+      if ((currentTemp === null || currentTemp === undefined || currentTemp === 0 || isNaN(currentTemp)) && 
+          sys76GpuTemp !== null && sys76GpuTemp !== undefined && !isNaN(sys76GpuTemp)) {
+        gpu.temperatureGpu = sys76GpuTemp;
+        console.log(`📊 GPU[${index}]: Using system76_acpi GPU temp: ${sys76GpuTemp}°C`);
+      }
+    });
   }
   
   // Cache the result
