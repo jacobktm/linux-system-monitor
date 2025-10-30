@@ -254,37 +254,28 @@ function updateGPU(data) {
     
     let metricsHTML = '';
     
-    // Usage metrics
-    if (gpu.utilizationGpu !== null && gpu.utilizationGpu !== undefined) {
-      const gpuUsageText = formatStat(gpu.utilizationGpu, stats, 'gpu_usage', '%');
-      const gpuTempText = (gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) ? formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C') : '';
-      
-      metricsHTML += `
-        <div class="metric-row">
-          <div class="metric">
-            <span class="label">GPU Usage</span>
-            <span class="value">${gpuUsageText}</span>
-          </div>
-          ${(gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) ? `
-            <div class="metric">
-              <span class="label">Temperature</span>
-              <span class="value ${getTempClass(gpu.temperatureGpu)}">${gpuTempText}</span>
-            </div>
-          ` : ''}
+    // Usage metrics - always show GPU Usage, even if 0 or null/undefined
+    const gpuUsageValue = (gpu.utilizationGpu !== null && gpu.utilizationGpu !== undefined) 
+      ? formatStat(gpu.utilizationGpu, stats, 'gpu_usage', '%')
+      : '<span class="current-value">N/A</span>';
+    const gpuTempText = (gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) 
+      ? formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C') 
+      : '';
+    
+    metricsHTML += `
+      <div class="metric-row">
+        <div class="metric">
+          <span class="label">GPU Usage</span>
+          <span class="value">${gpuUsageValue}</span>
         </div>
-      `;
-    } else if (gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) {
-      // Show temperature even if utilization is not available
-      const gpuTempText = formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C');
-      metricsHTML += `
-        <div class="metric-row">
+        ${(gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) ? `
           <div class="metric">
             <span class="label">Temperature</span>
             <span class="value ${getTempClass(gpu.temperatureGpu)}">${gpuTempText}</span>
           </div>
-        </div>
-      `;
-    }
+        ` : ''}
+      </div>
+    `;
     
     // VRAM and Fan
     if (vramInfo || gpu.fanSpeed !== null) {
