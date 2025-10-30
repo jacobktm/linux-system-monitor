@@ -51,6 +51,20 @@ public:
     std::vector<SensorData> getDDR5Temperatures();
     std::vector<SensorData> getRAPLPower();
     std::vector<PowerData> getRAPLPowerCalculated();
+    // Battery
+    // Returns map-like via V8 binding; here return as a simple std::map string->double not needed.
+    // We'll expose via bindings directly assembling a JS object from C++ getters.
+    bool getBatteryCalculated(
+        std::string& status,
+        bool& ac_connected,
+        double& voltage_v,
+        double& current_a,
+        double& power_w,
+        double& energy_now_wh,
+        double& energy_full_wh,
+        double& estimated_hours,
+        std::string& derived_state
+    );
     
     // Statistics
     void updateStats(const std::string& key, double value);

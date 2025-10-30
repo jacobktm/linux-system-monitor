@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <limits>
+#include <cstdio>
 
 SystemMonitor::SystemMonitor() {
     // Initialize statistics
@@ -325,6 +326,95 @@ uint64_t SystemMonitor::getCurrentTimeMicroseconds() {
     auto now = std::chrono::high_resolution_clock::now();
     auto duration = now.time_since_epoch();
     return std::chrono::duration_cast<std::chrono::microseconds>(duration).count();
+}
+
+bool SystemMonitor::getBatteryCalculated(
+    std::string& status,
+    bool& ac_connected,
+    double& voltage_v,
+    double& current_a,
+    double& power_w,
+    double& energy_now_wh,
+    double& energy_full_wh,
+    double& estimated_hours,
+    std::string& derived_state
+) {
+    const std::string baseDir = "/sys/class/power_supply";
+    if (!fileExists(baseDir)) return false;
+    auto entries = readDirectory(baseDir);
+    std::string batName;
+    std::string acName;
+    for (const auto& e : entries) {
+        std::string lower = e;
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+        if (batName.empty() && lower.rfind("bat", 0) == 0) batName = e;
+        if (acName.empty() && (lower.rfind("ac", 0) == 0 || lower.find("ac") != std::string::npos)) acName = e;
+    }
+    if (batName.empty()) return false;
+    std::string bp = baseDir + "/" + batName;
+
+    auto readTrim = [&](const std::string& p) -> std::string {
+        std::string s = readFile(p);
+        if (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.erase(std::remove(s.begin(), s.end(), '\n'), s.end());
+        return s;
+    };
+
+    status = readTrim(bp + "/status");
+    if (!acName.empty()) {
+        std::string present = readTrim(baseDir + "/" + acName + "/online");
+        ac_connected = (present == "1");
+    } else {
+        ac_connected = false;
+    }
+
+    auto toDoubleOr = [&](const std::string& s, double div) -> double {
+        if (s.empty()) return std::numeric_limits<double>::quiet_NaN();
+        try { return std::stod(s) / div; } catch (...) { return std::numeric_limits<double>::quiet_NaN(); }
+    };
+
+    std::string power_now = readTrim(bp + "/power_now"); // microwatts
+    std::string current_now = readTrim(bp + "/current_now"); // microamps
+    std::string voltage_now = readTrim(bp + "/voltage_now"); // microvolts
+    std::string energy_now = readTrim(bp + "/energy_now"); // microwatt-hours
+    std::string energy_full = readTrim(bp + "/energy_full"); // microwatt-hours
+    std::string charge_now = readTrim(bp + "/charge_now"); // microamp-hours
+    std::string charge_full = readTrim(bp + "/charge_full"); // microamp-hours
+
+    voltage_v = toDoubleOr(voltage_now, 1'000'000.0);
+    current_a = toDoubleOr(current_now, 1'000'000.0);
+    power_w = toDoubleOr(power_now, 1'000'000.0);
+    if (std::isnan(power_w) && !std::isnan(voltage_v) && !std::isnan(current_a)) {
+        power_w = voltage_v * current_a;
+    }
+
+    energy_now_wh = toDoubleOr(energy_now, 1'000'000.0);
+    energy_full_wh = toDoubleOr(energy_full, 1'000'000.0);
+    if ((std::isnan(energy_now_wh) || std::isnan(energy_full_wh)) && !std::isnan(voltage_v)) {
+        double charge_now_ah = toDoubleOr(charge_now, 1'000'000.0);
+        double charge_full_ah = toDoubleOr(charge_full, 1'000'000.0);
+        if (!std::isnan(charge_now_ah)) energy_now_wh = charge_now_ah * voltage_v;
+        if (!std::isnan(charge_full_ah)) energy_full_wh = charge_full_ah * voltage_v;
+    }
+
+    estimated_hours = std::numeric_limits<double>::quiet_NaN();
+    std::string statusLower = status;
+    std::transform(statusLower.begin(), statusLower.end(), statusLower.begin(), ::tolower);
+    if (!std::isnan(power_w) && power_w > 0.0 && !std::isnan(energy_now_wh)) {
+        if (statusLower.find("discharging") != std::string::npos) {
+            estimated_hours = energy_now_wh / power_w;
+        } else if (statusLower.find("charging") != std::string::npos && !std::isnan(energy_full_wh)) {
+            double delta = std::max(energy_full_wh - energy_now_wh, 0.0);
+            if (power_w > 0.0) estimated_hours = delta / power_w;
+        }
+    }
+
+    if (statusLower.find("charging") != std::string::npos) derived_state = "charging";
+    else if (statusLower.find("discharging") != std::string::npos) derived_state = "discharging";
+    else if (statusLower.find("full") != std::string::npos) derived_state = "full";
+    else if (statusLower.find("not charging") != std::string::npos) derived_state = ac_connected ? "idle" : "discharging";
+    else derived_state = ac_connected ? "idle" : "discharging";
+
+    return true;
 }
 
 void SystemMonitor::updateStats(const std::string& key, double value) {

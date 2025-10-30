@@ -609,6 +609,8 @@ function updateBattery(data) {
       ${currentMetric}
       ${powerMetric}
       ${temperature}
+    </div>
+    <div class="metric-row capacity-only">
       ${capacity}
     </div>
     ${battery.cycleCount ? `

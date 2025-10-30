@@ -126,6 +126,41 @@ NAN_METHOD(GetRAPLPowerCalculated) {
     info.GetReturnValue().Set(result);
 }
 
+// Get Battery calculated sensors
+NAN_METHOD(GetBatteryCalculated) {
+    if (g_monitor == nullptr) {
+        return Nan::ThrowError("SystemMonitor not initialized");
+    }
+    std::string status;
+    bool ac_connected = false;
+    double voltage_v = std::numeric_limits<double>::quiet_NaN();
+    double current_a = std::numeric_limits<double>::quiet_NaN();
+    double power_w = std::numeric_limits<double>::quiet_NaN();
+    double energy_now_wh = std::numeric_limits<double>::quiet_NaN();
+    double energy_full_wh = std::numeric_limits<double>::quiet_NaN();
+    double estimated_hours = std::numeric_limits<double>::quiet_NaN();
+    std::string derived_state;
+
+    bool ok = g_monitor->getBatteryCalculated(status, ac_connected, voltage_v, current_a, power_w,
+                                              energy_now_wh, energy_full_wh, estimated_hours, derived_state);
+    if (!ok) {
+        info.GetReturnValue().Set(Nan::Null());
+        return;
+    }
+
+    Local<Object> obj = Nan::New<Object>();
+    Nan::Set(obj, Nan::New("status").ToLocalChecked(), Nan::New(status).ToLocalChecked());
+    Nan::Set(obj, Nan::New("acConnected").ToLocalChecked(), Nan::New(ac_connected));
+    if (!std::isnan(voltage_v)) Nan::Set(obj, Nan::New("voltage").ToLocalChecked(), Nan::New(voltage_v));
+    if (!std::isnan(current_a)) Nan::Set(obj, Nan::New("current").ToLocalChecked(), Nan::New(current_a));
+    if (!std::isnan(power_w)) Nan::Set(obj, Nan::New("powerWatts").ToLocalChecked(), Nan::New(power_w));
+    if (!std::isnan(energy_now_wh)) Nan::Set(obj, Nan::New("energyNowWh").ToLocalChecked(), Nan::New(energy_now_wh));
+    if (!std::isnan(energy_full_wh)) Nan::Set(obj, Nan::New("energyFullWh").ToLocalChecked(), Nan::New(energy_full_wh));
+    if (!std::isnan(estimated_hours)) Nan::Set(obj, Nan::New("estimatedHours").ToLocalChecked(), Nan::New(estimated_hours));
+    Nan::Set(obj, Nan::New("state").ToLocalChecked(), Nan::New(derived_state).ToLocalChecked());
+    info.GetReturnValue().Set(obj);
+}
+
 // Update statistics
 NAN_METHOD(UpdateStats) {
     if (g_monitor == nullptr) {
@@ -243,6 +278,8 @@ NAN_MODULE_INIT(Init) {
              Nan::GetFunction(Nan::New<FunctionTemplate>(GetRAPLPower)).ToLocalChecked());
     Nan::Set(target, Nan::New("getRAPLPowerCalculated").ToLocalChecked(),
              Nan::GetFunction(Nan::New<FunctionTemplate>(GetRAPLPowerCalculated)).ToLocalChecked());
+    Nan::Set(target, Nan::New("getBatteryCalculated").ToLocalChecked(),
+             Nan::GetFunction(Nan::New<FunctionTemplate>(GetBatteryCalculated)).ToLocalChecked());
     Nan::Set(target, Nan::New("updateStats").ToLocalChecked(),
              Nan::GetFunction(Nan::New<FunctionTemplate>(UpdateStats)).ToLocalChecked());
     Nan::Set(target, Nan::New("getStats").ToLocalChecked(),

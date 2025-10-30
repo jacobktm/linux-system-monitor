@@ -135,6 +135,61 @@ class HybridSystemMonitor {
         return Object.keys(jsResult).length > 0 ? jsResult : (this.lastValidRAPLData || {});
     }
 
+    // Battery sensors - use native if available
+    async getBatterySensors() {
+        if (this.useNative) {
+            try {
+                const bat = this.nativeMonitor.getBatteryCalculated();
+                if (bat) return bat;
+            } catch (error) {
+                console.warn('Native battery sensors failed, falling back to JavaScript:', error.message);
+                this.useNative = false;
+            }
+        }
+        // JavaScript fallback using systeminformation + sysfs
+        const si = require('systeminformation');
+        const baseDir = '/sys/class/power_supply';
+        let voltage = null, current = null, powerWatts = null, estimatedHours = null, acConnected = null, status = null, state = 'unknown', energyNowWh = null, energyFullWh = null;
+        try {
+            const fs = require('fs');
+            const entries = fs.readdirSync(baseDir);
+            const bat = entries.find(e => e.toLowerCase().startsWith('bat'));
+            const ac = entries.find(e => e.toLowerCase().startsWith('ac') || e.toLowerCase().includes('ac'));
+            const read = (p) => { try { return fs.readFileSync(p, 'utf8').trim(); } catch { return null; } };
+            if (bat) {
+                const bp = `${baseDir}/${bat}`;
+                status = read(`${bp}/status`);
+                if (ac) acConnected = read(`${baseDir}/${ac}/online`) === '1';
+                const v = read(`${bp}/voltage_now`);
+                const c = read(`${bp}/current_now`);
+                const p = read(`${bp}/power_now`);
+                voltage = v ? parseInt(v) / 1_000_000 : null;
+                current = c ? parseInt(c) / 1_000_000 : null;
+                powerWatts = p ? parseInt(p) / 1_000_000 : (voltage && current ? voltage * current : null);
+                const en = read(`${bp}/energy_now`);
+                const ef = read(`${bp}/energy_full`);
+                if (en && ef) {
+                    energyNowWh = parseInt(en) / 1_000_000;
+                    energyFullWh = parseInt(ef) / 1_000_000;
+                }
+                if (powerWatts && energyNowWh) {
+                    const sl = (status || '').toLowerCase();
+                    if (sl.includes('discharging')) estimatedHours = energyNowWh / powerWatts;
+                    else if (sl.includes('charging') && energyFullWh) {
+                        estimatedHours = Math.max(energyFullWh - energyNowWh, 0) / powerWatts;
+                    }
+                }
+                const sl = (status || '').toLowerCase();
+                if (sl.includes('charging')) state = 'charging';
+                else if (sl.includes('discharging')) state = 'discharging';
+                else if (sl.includes('full')) state = 'full';
+                else if (sl.includes('not charging')) state = acConnected ? 'idle' : 'discharging';
+                else state = acConnected ? 'idle' : 'discharging';
+            }
+        } catch {}
+        return { status, acConnected, voltage, current, powerWatts, estimatedHours, state, energyNowWh, energyFullWh };
+    }
+
     // Statistics - use native if available
     updateStats(key, value) {
         if (this.useNative) {

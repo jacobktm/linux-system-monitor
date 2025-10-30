@@ -396,6 +396,23 @@ span .stat-range {
   gap: 15px;
 }
 
+/* Battery metrics layout: wrap gracefully and keep capacity on its own row */
+.battery-info .metric-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.battery-info .metric-row .metric {
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+
+.battery-info .metric-row.capacity-only .metric {
+  flex: 1 1 100%;
+  min-width: 100%;
+}
+
 .battery-status {
   display: flex;
   align-items: center;

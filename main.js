@@ -1165,14 +1165,15 @@ ipcMain.handle('get-system-data', async () => {
     if (needsMediumUpdate) {
       console.log('🔄 CACHE: Updating medium data cache...');
       try {
-        const [battery, fans, power, diskTemps, cpuTemps, systemTemps, ddr5Temps] = await Promise.all([
+        const [battery, fans, power, diskTemps, cpuTemps, systemTemps, ddr5Temps, nativeBat] = await Promise.all([
           si.battery(),
           getFanSpeeds(),
           getPowerConsumption(),
           getDiskTemperatures(),
           hybridMonitor.getCPUTemperatures(),
           getSystemTemperatures(),
-          hybridMonitor.getDDR5MemoryTemps()
+          hybridMonitor.getDDR5MemoryTemps(),
+          hybridMonitor.getBatterySensors()
         ]);
         mediumDataCache.battery = battery;
         mediumDataCache.fans = fans;
@@ -1230,6 +1231,7 @@ ipcMain.handle('get-system-data', async () => {
     const osInfo = staticDataCache.osInfo || await si.osInfo();
     const diskLayout = staticDataCache.diskLayout || await si.diskLayout();
     const battery = mediumDataCache.battery || await si.battery();
+    const nativeBat = mediumDataCache.nativeBat || await hybridMonitor.getBatterySensors();
     const fans = mediumDataCache.fans || [];
     const power = mediumDataCache.power || [];
     // RAPL power now comes from fast cache (10Hz updates)
@@ -1305,20 +1307,20 @@ ipcMain.handle('get-system-data', async () => {
         isCharging: battery.isCharging,
         percent: battery.percent,
         timeRemaining: battery.timeRemaining,
-        acConnected: (batSensors && batSensors.acConnected !== null) ? batSensors.acConnected : battery.acConnected,
+        acConnected: (nativeBat && nativeBat.acConnected !== null) ? nativeBat.acConnected : ((batSensors && batSensors.acConnected !== null) ? batSensors.acConnected : battery.acConnected),
         type: battery.type,
         model: battery.model,
         manufacturer: battery.manufacturer,
         currentCapacity: battery.currentCapacity,
         maxCapacity: battery.maxCapacity,
-        voltage: (batSensors && batSensors.voltage !== null) ? batSensors.voltage : battery.voltage,
+        voltage: (nativeBat && nativeBat.voltage !== null) ? nativeBat.voltage : ((batSensors && batSensors.voltage !== null) ? batSensors.voltage : battery.voltage),
         capacityUnit: battery.capacityUnit,
         temperature: battery.temperature,
         // Enhanced fields from sysfs sensors
-        current: batSensors ? batSensors.current : null,
-        powerWatts: batSensors ? batSensors.powerWatts : null,
-        estimatedHours: batSensors ? batSensors.estimatedHours : null,
-        state: batSensors ? batSensors.derivedState : (battery.isCharging ? 'charging' : 'discharging')
+        current: nativeBat && nativeBat.current !== undefined ? nativeBat.current : (batSensors ? batSensors.current : null),
+        powerWatts: nativeBat && nativeBat.powerWatts !== undefined ? nativeBat.powerWatts : (batSensors ? batSensors.powerWatts : null),
+        estimatedHours: nativeBat && nativeBat.estimatedHours !== undefined ? nativeBat.estimatedHours : (batSensors ? batSensors.estimatedHours : null),
+        state: nativeBat && nativeBat.state ? nativeBat.state : (batSensors ? batSensors.derivedState : (battery.isCharging ? 'charging' : 'discharging'))
       } : { hasBattery: false },
       gpu: gpuData,
       network: networkStats.map(net => ({
