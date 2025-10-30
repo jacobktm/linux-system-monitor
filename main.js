@@ -201,6 +201,99 @@ function execCommand(command) {
   }
 }
 
+// Helper: read file safe
+function readSensorFile(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8').trim();
+  } catch (e) {
+    return null;
+  }
+}
+
+// Helper: battery sensors from sysfs
+function getBatterySensors() {
+  const baseDir = '/sys/class/power_supply';
+  try {
+    const entries = fs.readdirSync(baseDir);
+    const bat = entries.find(e => e.toLowerCase().startsWith('bat'));
+    if (!bat) return null;
+    const bp = `${baseDir}/${bat}`;
+    const status = readSensorFile(`${bp}/status`); // Charging/Discharging/Full/Not charging/Unknown
+    const acPresent = (() => {
+      // Try to detect AC adapter state
+      const ac = entries.find(e => e.toLowerCase().startsWith('ac') || e.toLowerCase().includes('ac')); 
+      if (!ac) return null;
+      const present = readSensorFile(`${baseDir}/${ac}/online`);
+      return present === '1';
+    })();
+
+    // Prefer power_now if available, else compute from current*voltage
+    const powerNowStr = readSensorFile(`${bp}/power_now`); // microwatts
+    const currentNowStr = readSensorFile(`${bp}/current_now`); // microamps
+    const voltageNowStr = readSensorFile(`${bp}/voltage_now`); // microvolts
+
+    const energyNowStr = readSensorFile(`${bp}/energy_now`); // microwatt-hours
+    const energyFullStr = readSensorFile(`${bp}/energy_full`); // microwatt-hours
+    const chargeNowStr = readSensorFile(`${bp}/charge_now`); // microamp-hours
+    const chargeFullStr = readSensorFile(`${bp}/charge_full`); // microamp-hours
+
+    const voltageV = voltageNowStr ? parseInt(voltageNowStr) / 1_000_000 : null;
+    const currentA = currentNowStr ? parseInt(currentNowStr) / 1_000_000 : null;
+    let powerW = powerNowStr ? parseInt(powerNowStr) / 1_000_000 : null;
+    if ((powerW === null || isNaN(powerW)) && voltageV !== null && currentA !== null) {
+      powerW = voltageV * currentA;
+    }
+
+    // Estimate remaining hours based on energy if available
+    let energyNowWh = null;
+    let energyFullWh = null;
+    if (energyNowStr && energyFullStr) {
+      energyNowWh = parseInt(energyNowStr) / 1_000_000; // μWh -> Wh
+      energyFullWh = parseInt(energyFullStr) / 1_000_000;
+    } else if (chargeNowStr && chargeFullStr && voltageV) {
+      // Approximate Wh from Ah * V: (μAh -> Ah) * V
+      const chargeNowAh = parseInt(chargeNowStr) / 1_000_000;
+      const chargeFullAh = parseInt(chargeFullStr) / 1_000_000;
+      energyNowWh = chargeNowAh * voltageV;
+      energyFullWh = chargeFullAh * voltageV;
+    }
+
+    let estimatedHours = null;
+    if (powerW !== null && powerW > 0 && energyNowWh !== null) {
+      // If discharging, time to empty; if charging, time to full (rough)
+      if (status && status.toLowerCase().includes('discharging')) {
+        estimatedHours = energyNowWh / powerW;
+      } else if (status && status.toLowerCase().includes('charging') && energyFullWh !== null) {
+        const deltaWh = Math.max(energyFullWh - energyNowWh, 0);
+        estimatedHours = powerW > 0 ? (deltaWh / powerW) : null;
+      }
+    }
+
+    // Derive state more robustly
+    let derivedState = 'unknown';
+    const statusLower = (status || '').toLowerCase();
+    if (statusLower.includes('charging')) derivedState = 'charging';
+    else if (statusLower.includes('discharging')) derivedState = 'discharging';
+    else if (statusLower.includes('full')) derivedState = 'full';
+    else if (statusLower.includes('not charging')) derivedState = acPresent ? 'idle' : 'discharging';
+    else derivedState = acPresent ? 'idle' : 'discharging';
+
+    return {
+      status,
+      acConnected: acPresent,
+      voltage: voltageV,
+      current: currentA,
+      powerWatts: powerW,
+      energyNowWh,
+      energyFullWh,
+      estimatedHours,
+      derivedState
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 // Detect GPU type on startup
 function detectGPUType() {
   if (gpuType !== null) return gpuType;
@@ -1148,6 +1241,8 @@ ipcMain.handle('get-system-data', async () => {
     // Calculate per-core usage
     const coreLoads = cpuLoad.cpus || [];
 
+    const batSensors = getBatterySensors();
+
     const result = {
       cpu: {
         manufacturer: cpu.manufacturer,
@@ -1210,15 +1305,20 @@ ipcMain.handle('get-system-data', async () => {
         isCharging: battery.isCharging,
         percent: battery.percent,
         timeRemaining: battery.timeRemaining,
-        acConnected: battery.acConnected,
+        acConnected: (batSensors && batSensors.acConnected !== null) ? batSensors.acConnected : battery.acConnected,
         type: battery.type,
         model: battery.model,
         manufacturer: battery.manufacturer,
         currentCapacity: battery.currentCapacity,
         maxCapacity: battery.maxCapacity,
-        voltage: battery.voltage,
+        voltage: (batSensors && batSensors.voltage !== null) ? batSensors.voltage : battery.voltage,
         capacityUnit: battery.capacityUnit,
-        temperature: battery.temperature
+        temperature: battery.temperature,
+        // Enhanced fields from sysfs sensors
+        current: batSensors ? batSensors.current : null,
+        powerWatts: batSensors ? batSensors.powerWatts : null,
+        estimatedHours: batSensors ? batSensors.estimatedHours : null,
+        state: batSensors ? batSensors.derivedState : (battery.isCharging ? 'charging' : 'discharging')
       } : { hasBattery: false },
       gpu: gpuData,
       network: networkStats.map(net => ({
@@ -1286,6 +1386,19 @@ ipcMain.handle('get-system-data', async () => {
       if (gpu.powerDraw !== null) updateSimpleStat('gpu_power', gpu.powerDraw);
     }
     
+    // Track Battery stats (current and power)
+    if (result.battery && result.battery.hasBattery) {
+      if (result.battery.current !== null && result.battery.current !== undefined) {
+        updateSimpleStat('battery_current', result.battery.current);
+      }
+      if (result.battery.powerWatts !== null && result.battery.powerWatts !== undefined) {
+        updateSimpleStat('battery_power', result.battery.powerWatts);
+      }
+      if (result.battery.voltage !== null && result.battery.voltage !== undefined) {
+        updateSimpleStat('battery_voltage', result.battery.voltage);
+      }
+    }
+
     // Track Intel RAPL power stats
     if (result.raplPower) {
       Object.entries(result.raplPower).forEach(([name, raplData]) => {

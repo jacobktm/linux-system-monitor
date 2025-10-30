@@ -535,9 +535,12 @@ function updateBattery(data) {
   batteryCard.style.display = 'block';
   
   const battery = data.battery;
-  const chargingStatus = battery.isCharging 
+  const state = battery.state || (battery.isCharging ? 'charging' : 'discharging');
+  const chargingStatus = state === 'charging'
     ? '<span class="charging-indicator">⚡ Charging</span>' 
-    : '<span class="discharging-indicator">🔋 Discharging</span>';
+    : (state === 'full' || state === 'idle')
+      ? '<span class="charging-indicator">✔ Plugged in</span>'
+      : '<span class="discharging-indicator">🔋 Discharging</span>';
   
   const timeRemaining = battery.timeRemaining > 0 
     ? `<div class="metric">
@@ -550,6 +553,19 @@ function updateBattery(data) {
     ? `<div class="metric">
          <span class="label">Voltage</span>
          <span class="value">${battery.voltage.toFixed(2)} V</span>
+       </div>`
+    : '';
+  const stats = data.stats || {};
+  const currentMetric = (battery.current !== null && battery.current !== undefined)
+    ? `<div class="metric">
+         <span class="label">Current</span>
+         <span class="value">${formatStat(battery.current, stats, 'battery_current', ' A', 2)}</span>
+       </div>`
+    : '';
+  const powerMetric = (battery.powerWatts !== null && battery.powerWatts !== undefined)
+    ? `<div class="metric">
+         <span class="label">Power</span>
+         <span class="value">${formatStat(battery.powerWatts, stats, 'battery_power', ' W', 2)}</span>
        </div>`
     : '';
   
@@ -567,6 +583,13 @@ function updateBattery(data) {
        </div>`
     : '';
   
+  const estimated = (battery.estimatedHours && battery.estimatedHours > 0)
+    ? `<div class="metric">
+         <span class="label">Estimated ${state === 'charging' ? 'to Full' : 'Remaining'}</span>
+         <span class="value">${formatTime(Math.round(battery.estimatedHours * 3600))}</span>
+       </div>`
+    : timeRemaining;
+
   batteryContainer.innerHTML = `
     <div class="battery-status">
       <div class="battery-icon">${battery.percent > 80 ? '🔋' : battery.percent > 50 ? '🔋' : battery.percent > 20 ? '🪫' : '🪫'}</div>
@@ -579,10 +602,12 @@ function updateBattery(data) {
       <div class="progress-fill" style="width: ${battery.percent}%; background: ${battery.isCharging ? 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)' : 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'}"></div>
     </div>
     <div class="metric-row" style="margin-top: 15px;">
-      ${timeRemaining}
+      ${estimated}
       ${voltage}
     </div>
     <div class="metric-row">
+      ${currentMetric}
+      ${powerMetric}
       ${temperature}
       ${capacity}
     </div>
