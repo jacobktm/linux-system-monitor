@@ -253,6 +253,18 @@ std::vector<PowerData> SystemMonitor::getRAPLPowerCalculated() {
                         max_power_[name] = 0.0;
                         sum_power_[name] = 0.0;
                         count_power_[name] = 0;
+                        cumulative_energy_wh_[name] = 0.0; // Initialize cumulative energy
+                        // Return initial state with zero cumulative energy
+                        PowerData power;
+                        power.name = name;
+                        power.power = 0.0;
+                        power.energy = (double)energy / 1000000.0; // Convert to joules
+                        power.min_power = 0.0;
+                        power.max_power = 0.0;
+                        power.avg_power = 0.0;
+                        power.total_wh = 0.0;
+                        power.total_kwh = 0.0;
+                        powerData.push_back(power);
                         continue;
                     }
                     
@@ -267,12 +279,23 @@ std::vector<PowerData> SystemMonitor::getRAPLPowerCalculated() {
                     }
                     
                     double powerWatts = 0.0;
+                    double avgPower = 0.0;
+                    
                     if (timeDelta > 0) {
                         // Convert microjoules to watts: (μJ / μs) / 1,000,000 = J/s = W
                         powerWatts = (double)energyDelta / (double)timeDelta / 1000000.0;
                     }
                     
-                    // Filter reasonable values
+                    // Always accumulate energy if timeDelta is reasonable (regardless of power filter)
+                    // Energy counter is accurate even if power calculation looks suspicious
+                    // Note: energyDelta is unsigned, so >= 0 is always true, but checking anyway for clarity
+                    if (timeDelta > 100000 && timeDelta < 10000000) {
+                        // Accumulate session energy in Wh: μJ -> Wh = μJ / 3.6e9
+                        double whDelta = (double)energyDelta / 3600000000.0;
+                        cumulative_energy_wh_[name] += whDelta;
+                    }
+                    
+                    // Filter reasonable power values for display
                     if (timeDelta > 100000 && timeDelta < 10000000 && // 0.1-10 seconds
                         powerWatts >= 0.0 && powerWatts < 1000.0) {
                         
@@ -283,7 +306,6 @@ std::vector<PowerData> SystemMonitor::getRAPLPowerCalculated() {
                         }
                         
                         // Calculate rolling average (last 10 readings)
-                        double avgPower = 0.0;
                         int count = std::min(10, (int)power_readings_[name].size());
                         for (int i = std::max(0, (int)power_readings_[name].size() - count); 
                              i < (int)power_readings_[name].size(); i++) {
@@ -300,22 +322,28 @@ std::vector<PowerData> SystemMonitor::getRAPLPowerCalculated() {
                         }
                         sum_power_[name] += avgPower;
                         count_power_[name]++;
-                        
-                        // Accumulate session energy in Wh: μJ -> Wh = μJ / 3.6e9
-                        double whDelta = (double)energyDelta / 3600000000.0;
-                        cumulative_energy_wh_[name] += whDelta;
-
-                        PowerData power;
-                        power.name = name;
-                        power.power = avgPower;
-                        power.energy = (double)energy / 1000000.0; // Convert to joules
-                        power.min_power = min_power_[name];
-                        power.max_power = max_power_[name];
-                        power.avg_power = sum_power_[name] / count_power_[name];
-                        power.total_wh = cumulative_energy_wh_[name];
-                        power.total_kwh = cumulative_energy_wh_[name] / 1000.0;
-                        powerData.push_back(power);
+                    } else {
+                        // Use last valid power reading if available
+                        if (!power_readings_[name].empty()) {
+                            int count = std::min(10, (int)power_readings_[name].size());
+                            for (int i = std::max(0, (int)power_readings_[name].size() - count); 
+                                 i < (int)power_readings_[name].size(); i++) {
+                                avgPower += power_readings_[name][i];
+                            }
+                            avgPower /= count;
+                        }
                     }
+
+                    PowerData power;
+                    power.name = name;
+                    power.power = avgPower;
+                    power.energy = (double)energy / 1000000.0; // Convert to joules
+                    power.min_power = min_power_[name];
+                    power.max_power = max_power_[name];
+                    power.avg_power = (count_power_[name] > 0) ? sum_power_[name] / count_power_[name] : 0.0;
+                    power.total_wh = cumulative_energy_wh_[name];
+                    power.total_kwh = cumulative_energy_wh_[name] / 1000.0;
+                    powerData.push_back(power);
                     
                     // Update previous values
                     previous_energy_[name] = energy;
