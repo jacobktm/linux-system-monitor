@@ -58,10 +58,13 @@ function updateCPU(data) {
   // Update CPU power (Intel RAPL) - show last valid value when current data unavailable
   const cpuPowerElement = document.getElementById('cpu-power');
   const powerMetric = document.querySelector('.cpu-card .metric:has(#cpu-power)');
+  const cpuEnergyMetric = document.getElementById('cpu-energy-metric');
+  const cpuEnergyElement = document.getElementById('cpu-energy');
   
   if (data.raplPower && (data.raplPower['package-0'] || data.raplPower['core'])) {
     // Show the power metric when we have valid RAPL data
     if (powerMetric) powerMetric.style.display = '';
+    if (cpuEnergyMetric) cpuEnergyMetric.style.display = '';
     
     if (data.raplPower['package-0']) {
       const packagePower = data.raplPower['package-0'].power;
@@ -69,6 +72,10 @@ function updateCPU(data) {
       cpuPowerElement.innerHTML = formatStat(packagePower, stats, powerKey, ' W', 1);
       // Store the last valid value for fallback
       cpuPowerElement.dataset.lastValidValue = packagePower;
+      const kwh = data.raplPower['package-0'].totalKWh;
+      if (kwh !== undefined && kwh !== null) {
+        cpuEnergyElement.textContent = `${kwh.toFixed(4)} kWh`;
+      }
     } else if (data.raplPower['core']) {
       // Fallback to core power if package power not available
       const corePower = data.raplPower['core'].power;
@@ -76,6 +83,10 @@ function updateCPU(data) {
       cpuPowerElement.innerHTML = formatStat(corePower, stats, powerKey, ' W', 1);
       // Store the last valid value for fallback
       cpuPowerElement.dataset.lastValidValue = corePower;
+      const kwh = data.raplPower['core'].totalKWh;
+      if (kwh !== undefined && kwh !== null) {
+        cpuEnergyElement.textContent = `${kwh.toFixed(4)} kWh`;
+      }
     }
   } else {
     // Show last valid value if available, otherwise hide the metric
@@ -84,9 +95,11 @@ function updateCPU(data) {
       // Show the metric with last valid value
       if (powerMetric) powerMetric.style.display = '';
       cpuPowerElement.innerHTML = `<span class="current-value">${parseFloat(lastValidValue).toFixed(1)} W</span><span class="stat-range" style="opacity: 0.7;">[Last valid]</span>`;
+      if (cpuEnergyMetric) cpuEnergyMetric.style.display = 'none';
     } else {
       // Hide the power metric completely when no valid data is available
       if (powerMetric) powerMetric.style.display = 'none';
+      if (cpuEnergyMetric) cpuEnergyMetric.style.display = 'none';
     }
   }
   
@@ -285,6 +298,9 @@ function updateGPU(data) {
     // Power metrics
     if (gpu.powerDraw !== null || gpu.powerLimit !== null) {
       const powerText = gpu.powerDraw !== null ? formatStat(gpu.powerDraw, stats, 'gpu_power', 'W') : '';
+      const energyText = (gpu.energyKWh !== null && gpu.energyKWh !== undefined)
+        ? `${gpu.energyKWh.toFixed(4)} kWh`
+        : '';
       
       metricsHTML += `
         <div class="metric-row">
@@ -298,6 +314,12 @@ function updateGPU(data) {
             <div class="metric">
               <span class="label">Power Limit</span>
               <span class="value">${gpu.powerLimit.toFixed(0)}W</span>
+            </div>
+          ` : ''}
+          ${energyText ? `
+            <div class="metric">
+              <span class="label">Energy</span>
+              <span class="value">${energyText}</span>
             </div>
           ` : ''}
         </div>

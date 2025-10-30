@@ -301,6 +301,10 @@ std::vector<PowerData> SystemMonitor::getRAPLPowerCalculated() {
                         sum_power_[name] += avgPower;
                         count_power_[name]++;
                         
+                        // Accumulate session energy in Wh: μJ -> Wh = μJ / 3.6e9
+                        double whDelta = (double)energyDelta / 3600000000.0;
+                        cumulative_energy_wh_[name] += whDelta;
+
                         PowerData power;
                         power.name = name;
                         power.power = avgPower;
@@ -308,6 +312,8 @@ std::vector<PowerData> SystemMonitor::getRAPLPowerCalculated() {
                         power.min_power = min_power_[name];
                         power.max_power = max_power_[name];
                         power.avg_power = sum_power_[name] / count_power_[name];
+                        power.total_wh = cumulative_energy_wh_[name];
+                        power.total_kwh = cumulative_energy_wh_[name] / 1000.0;
                         powerData.push_back(power);
                     }
                     

@@ -27,6 +27,8 @@ struct PowerData {
     double min_power;
     double max_power;
     double avg_power;
+    double total_wh;
+    double total_kwh;
 };
 
 struct SystemStats {
@@ -84,6 +86,7 @@ private:
     std::map<std::string, double> max_power_;
     std::map<std::string, double> sum_power_;
     std::map<std::string, int> count_power_;
+    std::map<std::string, double> cumulative_energy_wh_;
     
     std::string readFile(const std::string& path);
     std::vector<std::string> readDirectory(const std::string& path);

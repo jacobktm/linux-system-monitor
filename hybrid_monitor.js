@@ -98,7 +98,9 @@ class HybridSystemMonitor {
                 powerData.forEach(power => {
                     raplPower[power.name] = {
                         power: power.power,
-                        energy: power.energy,
+                        energy: power.energy, // joules
+                        totalWh: power.totalWh,
+                        totalKWh: power.totalKWh,
                         stats: {
                             current: power.power,
                             min: power.min_power,

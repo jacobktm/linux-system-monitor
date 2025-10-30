@@ -111,6 +111,8 @@ NAN_METHOD(GetRAPLPowerCalculated) {
         Nan::Set(power, Nan::New("name").ToLocalChecked(), Nan::New<String>(powerData[i].name).ToLocalChecked());
         Nan::Set(power, Nan::New("power").ToLocalChecked(), Nan::New<Number>(powerData[i].power));
         Nan::Set(power, Nan::New("energy").ToLocalChecked(), Nan::New<Number>(powerData[i].energy));
+        Nan::Set(power, Nan::New("totalWh").ToLocalChecked(), Nan::New<Number>(powerData[i].total_wh));
+        Nan::Set(power, Nan::New("totalKWh").ToLocalChecked(), Nan::New<Number>(powerData[i].total_kwh));
         
         // Stats object
         Local<Object> stats = Nan::New<Object>();

@@ -15,6 +15,8 @@ let gpuType = null; // 'nvidia', 'amd', or null
 let appInitialized = false;
 let logger = null;
 let hybridMonitor = null;
+let gpuEnergyWhSession = {};
+let lastEnergyTimestampMs = null;
 
 // Simple stats tracking
 let simpleStats = {};
@@ -1348,6 +1350,21 @@ ipcMain.handle('get-system-data', async () => {
       timestamp: Date.now(),
       stats: {} // Initialize stats object
     };
+
+    // Accumulate GPU energy (session) in Wh
+    const nowTs = Date.now();
+    if (lastEnergyTimestampMs === null) lastEnergyTimestampMs = nowTs;
+    const dtHours = Math.max(0, (nowTs - lastEnergyTimestampMs) / 3600000);
+    if (Array.isArray(result.gpu)) {
+      result.gpu.forEach((gpu, idx) => {
+        if (gpu && gpu.powerDraw !== null && gpu.powerDraw !== undefined) {
+          if (!gpuEnergyWhSession[idx]) gpuEnergyWhSession[idx] = 0;
+          gpuEnergyWhSession[idx] += gpu.powerDraw * dtHours;
+          gpu.energyKWh = gpuEnergyWhSession[idx] / 1000;
+        }
+      });
+    }
+    lastEnergyTimestampMs = nowTs;
     
     // Track stats with simple system
     console.log('📊 STATS: Tracking statistics...');
