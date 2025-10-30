@@ -4,9 +4,10 @@ const path = require('path');
 class SystemLogger {
   constructor() {
     this.isLogging = true;
-    this.logDir = path.join(require('os').homedir(), '.system-monitor-logs');
+    this.logDir = require('os').homedir();
     this.startTime = Date.now();
     this.sessionId = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    this.summaryTxtPath = null;
     
     // Stats tracking
     this.stats = {};
@@ -29,6 +30,7 @@ class SystemLogger {
     // Setup detailed log file
     this.detailedLogPath = path.join(this.logDir, `system-monitor-${this.sessionId}.csv`);
     this.detailedStream = fs.createWriteStream(this.detailedLogPath, { flags: 'a' });
+    this.summaryTxtPath = path.join(this.logDir, `system-monitor-${this.sessionId}.txt`);
     
     console.log(`Logging to: ${this.detailedLogPath}`);
   }
@@ -53,6 +55,9 @@ class SystemLogger {
     
     // Update statistics
     this.updateStats(data);
+
+    // Overwrite rolling summary .txt on each update
+    this.writeRollingSummaryTxt();
   }
   
   buildCSVHeader(data) {
@@ -367,6 +372,37 @@ class SystemLogger {
     console.log(`Summary written to: ${summaryPath}`);
     
     return summaryPath;
+  }
+
+  writeRollingSummaryTxt() {
+    try {
+      const stats = this.getStats();
+      const entries = Object.entries(stats);
+      // Determine column widths
+      const nameWidth = Math.max(20, ...entries.map(([name]) => name.length + 2));
+      const col = (label, width) => label.padEnd(width, ' ');
+      const num = (val, width) => this.formatNumber(val).toString().padStart(width, ' ');
+      const numWidth = 12;
+
+      let lines = [];
+      lines.push(`System Monitor Summary`);
+      lines.push(`Session: ${this.sessionId}`);
+      lines.push(`Updated: ${new Date().toISOString()}`);
+      lines.push('');
+      lines.push(`${col('Metric', nameWidth)}${col('Min', numWidth)}${col('Max', numWidth)}${col('Avg', numWidth)}`);
+      lines.push(`${'-'.repeat(nameWidth)}${'-'.repeat(numWidth)}${'-'.repeat(numWidth)}${'-'.repeat(numWidth)}`);
+
+      // Sort metrics alphabetically for stable output
+      entries.sort(([a], [b]) => a.localeCompare(b));
+      for (const [key, stat] of entries) {
+        lines.push(`${col(key, nameWidth)}${num(stat.min, numWidth)}${num(stat.max, numWidth)}${num(stat.avg, numWidth)}`);
+      }
+
+      const content = lines.join('\n') + '\n';
+      fs.writeFileSync(this.summaryTxtPath, content);
+    } catch (err) {
+      // Best-effort: avoid throwing during logging loop
+    }
   }
   
   formatNumber(num) {
