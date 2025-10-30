@@ -257,7 +257,7 @@ function updateGPU(data) {
     // Usage metrics
     if (gpu.utilizationGpu !== null && gpu.utilizationGpu !== undefined) {
       const gpuUsageText = formatStat(gpu.utilizationGpu, stats, 'gpu_usage', '%');
-      const gpuTempText = gpu.temperatureGpu !== null ? formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C') : '';
+      const gpuTempText = (gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) ? formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C') : '';
       
       metricsHTML += `
         <div class="metric-row">
@@ -265,12 +265,23 @@ function updateGPU(data) {
             <span class="label">GPU Usage</span>
             <span class="value">${gpuUsageText}</span>
           </div>
-          ${gpu.temperatureGpu !== null ? `
+          ${(gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) ? `
             <div class="metric">
               <span class="label">Temperature</span>
               <span class="value ${getTempClass(gpu.temperatureGpu)}">${gpuTempText}</span>
             </div>
           ` : ''}
+        </div>
+      `;
+    } else if (gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) {
+      // Show temperature even if utilization is not available
+      const gpuTempText = formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C');
+      metricsHTML += `
+        <div class="metric-row">
+          <div class="metric">
+            <span class="label">Temperature</span>
+            <span class="value ${getTempClass(gpu.temperatureGpu)}">${gpuTempText}</span>
+          </div>
         </div>
       `;
     }
@@ -474,18 +485,10 @@ function updateSystemTemps(data) {
     return;
   }
   
-  // Filter out system76_acpi GPU sensors (they're used in GPU card)
-  const filteredTemps = data.systemTemps.filter(sensor => !sensor.isSystem76AcpiGPU);
-  
-  if (filteredTemps.length === 0) {
-    tempsCard.style.display = 'none';
-    return;
-  }
-  
   tempsCard.style.display = 'block';
   tempsContainer.innerHTML = '';
   
-  filteredTemps.forEach(sensor => {
+  data.systemTemps.forEach(sensor => {
     const tempDiv = document.createElement('div');
     tempDiv.className = `temp-item ${getTempClass(sensor.temp)}`;
     tempDiv.innerHTML = `
