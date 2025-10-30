@@ -281,11 +281,25 @@ class SystemLogger {
   updateStats(data) {
     // CPU stats
     this.updateStat('cpu_usage', data.cpu?.currentLoad);
+    // CPU package frequency (avg)
+    if (data.cpu) {
+      const avgFreq = data.cpu.frequencies && data.cpu.frequencies.length > 0 
+        ? data.cpu.frequencies.reduce((a, b) => a + b, 0) / data.cpu.frequencies.length
+        : (data.cpu.speed || undefined);
+      this.updateStat('cpu_freq_package', avgFreq);
+    }
     
     if (data.cpu?.coreLoads) {
       data.cpu.coreLoads.forEach((core, i) => {
         this.updateStat(`cpu_core${i}_usage`, core.load);
       });
+    }
+
+    // Per-core CPU frequencies
+    if (data.cpu?.frequencies) {
+      for (let i = 0; i < data.cpu.frequencies.length; i++) {
+        this.updateStat(`cpu_core${i}_freq`, data.cpu.frequencies[i]);
+      }
     }
     
     if (data.cpu?.temperature?.sensors) {
@@ -297,15 +311,31 @@ class SystemLogger {
     
     // Memory stats
     this.updateStat('mem_percent', data.memory?.usedPercent);
+    if (data.memory) {
+      this.updateStat('mem_used', data.memory.used);
+      if (data.memory.swap && data.memory.swap.used !== undefined) {
+        this.updateStat('swap_used', data.memory.swap.used);
+      }
+      if (data.memory.ddr5Temps && data.memory.ddr5Temps.length > 0) {
+        data.memory.ddr5Temps.forEach(memTemp => {
+          const name = memTemp.label.replace(/[^a-zA-Z0-9]/g, '_');
+          this.updateStat(`ddr5_${name}_temp`, memTemp.temp);
+        });
+      }
+    }
     
     // GPU stats
     if (data.gpu && data.gpu.length > 0) {
       const gpu = data.gpu[0];
       this.updateStat('gpu_usage', gpu.utilizationGpu);
-      this.updateStat('gpu_temp', gpu.temperature);
+      this.updateStat('gpu_temp', gpu.temperatureGpu ?? gpu.temperature);
       this.updateStat('gpu_power', gpu.powerDraw);
-      if (gpu.vram && gpu.vramUsed) {
-        this.updateStat('gpu_vram_percent', (gpu.vramUsed / gpu.vram) * 100);
+      if (gpu.memoryTotal !== undefined && gpu.memoryUsed !== undefined) {
+        this.updateStat('gpu_vram_used', gpu.memoryUsed);
+        this.updateStat('gpu_vram_total', gpu.memoryTotal);
+        if (gpu.memoryTotal) {
+          this.updateStat('gpu_vram_percent', (gpu.memoryUsed / gpu.memoryTotal) * 100);
+        }
       }
     }
     
@@ -316,12 +346,28 @@ class SystemLogger {
         this.updateStat(`disk_${device}_write`, diskIO.writeBytesPerSec);
       });
     }
+
+    // Per-disk temperatures
+    if (data.disk?.temperatures) {
+      Object.entries(data.disk.temperatures).forEach(([device, temp]) => {
+        this.updateStat(`disk_${device}_temp`, temp);
+      });
+    }
     
     // Network rates
     if (data.network) {
       data.network.forEach(net => {
         if (net.rx_sec !== null) this.updateStat(`net_${net.iface}_rx`, net.rx_sec);
         if (net.tx_sec !== null) this.updateStat(`net_${net.iface}_tx`, net.tx_sec);
+      });
+    }
+
+    // Intel RAPL power data
+    if (data.raplPower) {
+      Object.keys(data.raplPower).forEach(name => {
+        const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
+        const raplData = data.raplPower[name];
+        this.updateStat(`rapl_${cleanName}_power`, raplData.power);
       });
     }
   }
