@@ -5,6 +5,13 @@ class HybridSystemMonitor {
     constructor() {
         this.nativeMonitor = null;
         this.useNative = false;
+        this.nativeFeatures = {
+            rapl: false,
+            battery: false,
+            cpuFreq: true,
+            cpuTemp: true,
+            ddr5: true
+        };
         this.simpleStats = {};
         this.init();
     }
@@ -15,12 +22,30 @@ class HybridSystemMonitor {
             this.nativeMonitor = new NativeSystemMonitor();
             if (this.nativeMonitor.isInitialized()) {
                 this.useNative = true;
+                // Check which native features are available
+                this.checkNativeFeatures();
                 console.log('Using native system monitor for improved performance');
             } else {
                 console.log('Native monitor not available, using JavaScript fallback');
             }
         } catch (error) {
             console.log('Native monitor not available, using JavaScript fallback:', error.message);
+        }
+    }
+
+    checkNativeFeatures() {
+        if (!this.nativeMonitor) return;
+        try {
+            // Check if RAPL function exists
+            if (typeof this.nativeMonitor.getRAPLPowerCalculated === 'function') {
+                this.nativeFeatures.rapl = true;
+            }
+            // Check if battery function exists
+            if (typeof this.nativeMonitor.getBatteryCalculated === 'function') {
+                this.nativeFeatures.battery = true;
+            }
+        } catch (e) {
+            // Feature check failed
         }
     }
 
@@ -90,7 +115,7 @@ class HybridSystemMonitor {
 
     // RAPL Power - use native if available
     async getIntelRAPLPower() {
-        if (this.useNative) {
+        if (this.nativeFeatures.rapl) {
             try {
                 // Use the new native C implementation with power calculations
                 const powerData = this.nativeMonitor.getRAPLPowerCalculated();
@@ -119,8 +144,7 @@ class HybridSystemMonitor {
                 return Object.keys(raplPower).length > 0 ? raplPower : (this.lastValidRAPLData || {});
             } catch (error) {
                 console.warn('Native RAPL power calculated failed, falling back to JavaScript:', error.message);
-                console.warn('Error details:', error);
-                this.useNative = false;
+                this.nativeFeatures.rapl = false;
             }
         }
         
@@ -139,13 +163,13 @@ class HybridSystemMonitor {
 
     // Battery sensors - use native if available
     async getBatterySensors() {
-        if (this.useNative) {
+        if (this.nativeFeatures.battery) {
             try {
                 const bat = this.nativeMonitor.getBatteryCalculated();
                 if (bat) return bat;
             } catch (error) {
                 console.warn('Native battery sensors failed, falling back to JavaScript:', error.message);
-                this.useNative = false;
+                this.nativeFeatures.battery = false;
             }
         }
         // JavaScript fallback using systeminformation + sysfs
