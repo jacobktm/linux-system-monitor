@@ -620,7 +620,12 @@ function updateBattery(data) {
         <div style="color: #b0b0b0;">${battery.model || 'Battery'} ${chargingStatus}</div>
       </div>
     </div>
-    <div class="progress-bar">
+    ${capacity ? `
+      <div class="metric-row capacity-only" style="margin-top: 15px;">
+        ${capacity}
+      </div>
+    ` : ''}
+    <div class="progress-bar" style="margin-top: ${capacity ? '10px' : '15px'};">
       <div class="progress-fill" style="width: ${battery.percent}%; background: ${battery.isCharging ? 'linear-gradient(90deg, #4caf50 0%, #8bc34a 100%)' : 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'}"></div>
     </div>
     <div class="metric-row" style="margin-top: 15px;">
@@ -631,9 +636,6 @@ function updateBattery(data) {
       ${currentMetric}
       ${powerMetric}
       ${temperature}
-    </div>
-    <div class="metric-row capacity-only">
-      ${capacity}
     </div>
     ${battery.cycleCount ? `
       <div class="metric-row">
