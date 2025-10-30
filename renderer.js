@@ -474,10 +474,18 @@ function updateSystemTemps(data) {
     return;
   }
   
+  // Filter out system76_acpi GPU sensors (they're used in GPU card)
+  const filteredTemps = data.systemTemps.filter(sensor => !sensor.isSystem76AcpiGPU);
+  
+  if (filteredTemps.length === 0) {
+    tempsCard.style.display = 'none';
+    return;
+  }
+  
   tempsCard.style.display = 'block';
   tempsContainer.innerHTML = '';
   
-  data.systemTemps.forEach(sensor => {
+  filteredTemps.forEach(sensor => {
     const tempDiv = document.createElement('div');
     tempDiv.className = `temp-item ${getTempClass(sensor.temp)}`;
     tempDiv.innerHTML = `

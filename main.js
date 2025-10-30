@@ -441,6 +441,33 @@ async function getAMDGPUData() {
   return gpus;
 }
 
+// Get system76_acpi GPU temperature directly from sysfs
+function getSystem76AcpiGPUTemp() {
+  try {
+    const hwmonDirs = fs.readdirSync('/sys/class/hwmon').filter(d => d.startsWith('hwmon'));
+    for (const hwmon of hwmonDirs) {
+      const basePath = `/sys/class/hwmon/${hwmon}`;
+      const name = readSensorFile(`${basePath}/name`);
+      
+      if (name && name.includes('system76_acpi')) {
+        let j = 1;
+        while (true) {
+          const temp = readSensorFile(`${basePath}/temp${j}_input`);
+          if (temp === null) break;
+          const label = readSensorFile(`${basePath}/temp${j}_label`) || `${name}_temp${j}`;
+          
+          const labelLower = label.toLowerCase();
+          if (labelLower.includes('gpu')) {
+            return parseInt(temp) / 1000;
+          }
+          j++;
+        }
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
 // Get GPU data based on detected type (cached)
 async function getGPUData() {
   const now = Date.now();
@@ -477,6 +504,14 @@ async function getGPUData() {
       }));
     } catch (e) {
       gpuData = [];
+    }
+  }
+  
+  // If nvidia-smi didn't provide GPU temp, try system76_acpi
+  if (gpuData.length > 0 && (gpuData[0].temperatureGpu === null || gpuData[0].temperatureGpu === undefined)) {
+    const sys76GpuTemp = getSystem76AcpiGPUTemp();
+    if (sys76GpuTemp !== null) {
+      gpuData[0].temperatureGpu = sys76GpuTemp;
     }
   }
   
@@ -717,27 +752,32 @@ async function getSystemTemperatures() {
       const basePath = `/sys/class/hwmon/${hwmon}`;
       const name = readSensorFile(`${basePath}/name`);
       
-      // Skip CPU sensors, GPU sensors, NVMe sensors, and drivetemp
+      // Skip CPU sensors, GPU sensors, NVMe sensors, drivetemp, system76_acpi CPU, and DDR5 sensors
       if (name && !name.includes('coretemp') && !name.includes('k10temp') && 
           !name.includes('zenpower') && !name.includes('cpu_thermal') &&
           !name.includes('x86_pkg_temp') &&
           !name.includes('nouveau') && !name.includes('amdgpu') && !name.includes('radeon') &&
-          name !== 'nvme' && !name.includes('drivetemp')) {
+          name !== 'nvme' && !name.includes('drivetemp') &&
+          !name.includes('spd5118') && !name.includes('apd5118')) {
         let j = 1;
         while (true) {
           const temp = readSensorFile(`${basePath}/temp${j}_input`);
           if (temp === null) break;
           const label = readSensorFile(`${basePath}/temp${j}_label`) || `${name}_temp${j}`;
           
-          // Double-check: Skip if label contains "Composite" or CPU-related terms
+          // Double-check: Skip if label contains "Composite", CPU-related terms, or DDR5 sensors
           const labelLower = label.toLowerCase();
           if (!labelLower.includes('composite') && !labelLower.includes('cpu') &&
-              !labelLower.includes('core') && !labelLower.includes('package')) {
-            temps.push({
-              type: label,
-              temp: parseInt(temp) / 1000,
-              isCPU: false
-            });
+              !labelLower.includes('core') && !labelLower.includes('package') &&
+              !labelLower.includes('apd5118')) {
+            // For system76_acpi: skip both CPU and GPU temps (GPU temp will be used in GPU card if needed)
+            if (!name.includes('system76_acpi')) {
+              temps.push({
+                type: label,
+                temp: parseInt(temp) / 1000,
+                isCPU: false
+              });
+            }
           }
           j++;
         }
