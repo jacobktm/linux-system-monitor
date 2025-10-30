@@ -296,23 +296,23 @@ function updateGPU(data) {
     }
     
     // Power metrics
-    if (gpu.powerDraw !== null || gpu.powerLimit !== null) {
-      const powerText = gpu.powerDraw !== null ? formatStat(gpu.powerDraw, stats, 'gpu_power', 'W') : '';
+    if ((gpu.powerDraw !== null && gpu.powerDraw !== undefined) || (gpu.powerLimit !== null && gpu.powerLimit !== undefined)) {
+      const powerText = (gpu.powerDraw !== null && gpu.powerDraw !== undefined) ? formatStat(gpu.powerDraw, stats, 'gpu_power', 'W') : '';
       const energyText = (gpu.energyKWh !== null && gpu.energyKWh !== undefined)
         ? `${gpu.energyKWh.toFixed(4)} kWh`
         : '';
       
       metricsHTML += `
         <div class="metric-row">
-          ${gpu.powerDraw !== null ? `
+          ${(gpu.powerDraw !== null && gpu.powerDraw !== undefined) ? `
             <div class="metric">
               <span class="label">Power Draw</span>
               <span class="value">${powerText}</span>
             </div>
           ` : ''}
-          ${gpu.powerLimit !== null ? `
+          ${(gpu.powerLimit !== null && gpu.powerLimit !== undefined) ? `
             <div class="metric">
-              <span class="label">Max Power</span>
+              <span class="label">Power Limit</span>
               <span class="value">${gpu.powerLimit.toFixed(0)}W</span>
             </div>
           ` : ''}

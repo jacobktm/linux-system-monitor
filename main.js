@@ -356,7 +356,7 @@ async function getNvidiaGPUData() {
         vramUsed: parseInt(parts[6]) || null,
         vramFree: parseInt(parts[7]) || null,
         powerDraw: parseFloat(parts[8]) || null,
-        powerLimit: parseFloat(parts[9]) || null,
+        powerLimit: (parts[9] && !isNaN(parseFloat(parts[9]))) ? parseFloat(parts[9]) : null,
         clockCore: parseInt(parts[10]) || null,
         clockMemory: parseInt(parts[11]) || null,
         fanSpeed: parseFloat(parts[12]) || null
