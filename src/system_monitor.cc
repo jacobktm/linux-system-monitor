@@ -386,6 +386,9 @@ bool SystemMonitor::getBatteryCalculated(
     if (std::isnan(power_w) && !std::isnan(voltage_v) && !std::isnan(current_a)) {
         power_w = voltage_v * current_a;
     }
+    // Normalize signs: charging currents can be negative in some drivers
+    if (!std::isnan(current_a) && current_a < 0.0) current_a = std::fabs(current_a);
+    if (!std::isnan(power_w) && power_w < 0.0) power_w = std::fabs(power_w);
 
     energy_now_wh = toDoubleOr(energy_now, 1'000'000.0);
     energy_full_wh = toDoubleOr(energy_full, 1'000'000.0);
@@ -413,6 +416,12 @@ bool SystemMonitor::getBatteryCalculated(
     else if (statusLower.find("full") != std::string::npos) derived_state = "full";
     else if (statusLower.find("not charging") != std::string::npos) derived_state = ac_connected ? "idle" : "discharging";
     else derived_state = ac_connected ? "idle" : "discharging";
+
+    // If plugged in and no valid readings, default to zeros rather than missing
+    if (ac_connected && (derived_state == "charging" || derived_state == "idle" || derived_state == "full")) {
+        if (std::isnan(power_w)) power_w = 0.0;
+        if (std::isnan(current_a)) current_a = 0.0;
+    }
 
     return true;
 }

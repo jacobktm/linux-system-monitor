@@ -165,14 +165,16 @@ class HybridSystemMonitor {
                 const p = read(`${bp}/power_now`);
                 voltage = v ? parseInt(v) / 1_000_000 : null;
                 current = c ? parseInt(c) / 1_000_000 : null;
-                powerWatts = p ? parseInt(p) / 1_000_000 : (voltage && current ? voltage * current : null);
+                powerWatts = p ? parseInt(p) / 1_000_000 : (voltage != null && current != null ? voltage * current : null);
+                if (current != null && current < 0) current = Math.abs(current);
+                if (powerWatts != null && powerWatts < 0) powerWatts = Math.abs(powerWatts);
                 const en = read(`${bp}/energy_now`);
                 const ef = read(`${bp}/energy_full`);
                 if (en && ef) {
                     energyNowWh = parseInt(en) / 1_000_000;
                     energyFullWh = parseInt(ef) / 1_000_000;
                 }
-                if (powerWatts && energyNowWh) {
+                if (powerWatts != null && powerWatts > 0 && energyNowWh) {
                     const sl = (status || '').toLowerCase();
                     if (sl.includes('discharging')) estimatedHours = energyNowWh / powerWatts;
                     else if (sl.includes('charging') && energyFullWh) {
@@ -185,6 +187,10 @@ class HybridSystemMonitor {
                 else if (sl.includes('full')) state = 'full';
                 else if (sl.includes('not charging')) state = acConnected ? 'idle' : 'discharging';
                 else state = acConnected ? 'idle' : 'discharging';
+                if (acConnected && (state === 'charging' || state === 'idle' || state === 'full')) {
+                    if (powerWatts == null) powerWatts = 0;
+                    if (current == null) current = 0;
+                }
             }
         } catch {}
         return { status, acConnected, voltage, current, powerWatts, estimatedHours, state, energyNowWh, energyFullWh };

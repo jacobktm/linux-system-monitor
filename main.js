@@ -1176,6 +1176,7 @@ ipcMain.handle('get-system-data', async () => {
           hybridMonitor.getBatterySensors()
         ]);
         mediumDataCache.battery = battery;
+        mediumDataCache.nativeBat = nativeBat;
         mediumDataCache.fans = fans;
         mediumDataCache.power = power;
         // RAPL power now handled in fast cache (10Hz)
