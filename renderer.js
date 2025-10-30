@@ -257,7 +257,7 @@ function updateGPU(data) {
     // Usage metrics - always show GPU Usage, even if 0 or null/undefined
     const gpuUsageValue = (gpu.utilizationGpu !== null && gpu.utilizationGpu !== undefined) 
       ? formatStat(gpu.utilizationGpu, stats, 'gpu_usage', '%')
-      : '<span class="current-value">N/A</span>';
+      : formatStat(0, stats, 'gpu_usage', '%');
     const gpuTempText = (gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) 
       ? formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C') 
       : '';
