@@ -312,7 +312,7 @@ function updateGPU(data) {
           ` : ''}
           ${gpu.powerLimit !== null ? `
             <div class="metric">
-              <span class="label">Power Limit</span>
+              <span class="label">Max Power</span>
               <span class="value">${gpu.powerLimit.toFixed(0)}W</span>
             </div>
           ` : ''}
