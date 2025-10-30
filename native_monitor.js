@@ -1,4 +1,20 @@
-const systemMonitor = require('./build/Release/system_monitor');
+let systemMonitor;
+try {
+    // Try to load prebuilt binary matching current Node/Electron ABI
+    const abi = process.versions.modules; // e.g., 118 for Node 18/Electron 28
+    const path = `./bin/linux-x64-${abi}/system-monitor.node`;
+    systemMonitor = require(path);
+    console.log(`Loaded native system monitor from prebuilt: ${path}`);
+} catch (e1) {
+    try {
+        // Fallback to local build
+        systemMonitor = require('./build/Release/system_monitor');
+        console.log('Loaded native system monitor from build/Release');
+    } catch (e2) {
+        console.error('Failed to load native system monitor:', e1.message, '|', e2.message);
+        throw e2;
+    }
+}
 
 class NativeSystemMonitor {
     constructor() {
