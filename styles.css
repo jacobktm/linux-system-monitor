@@ -168,6 +168,27 @@ span .stat-range {
   max-width: 120px;
 }
 
+/* CPU metrics wrap behavior: stack when narrow; keep Usage last above progress bar */
+.cpu-info .metric-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cpu-info .metric-row .metric {
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+
+@media (max-width: 760px) {
+  .cpu-info .metric-row .metric { order: 1; }
+  .cpu-info .metric-row .metric:has(#cpu-usage) {
+    order: 2;
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+}
+
 
 .progress-bar {
   width: 100%;
