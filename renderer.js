@@ -11,11 +11,9 @@ function formatBytes(bytes, decimals = 2) {
 // Format stat with min/max/avg
 function formatStat(current, stats, key, suffix = '%', decimals = 1) {
   if (!stats || !stats[key]) {
-    console.log(`📊 FORMAT: No stats for ${key}, returning plain value`);
     return `<span class="current-value">${current.toFixed(decimals)}${suffix}</span>`;
   }
   const stat = stats[key];
-  console.log(`📊 FORMAT: ${key} = ${current.toFixed(decimals)}${suffix} [${stat.min.toFixed(decimals)}/${stat.max.toFixed(decimals)}/${stat.avg.toFixed(decimals)}]`);
   return `<span class="current-value">${current.toFixed(decimals)}${suffix}</span><span class="stat-range" title="Min/Max/Avg">[${stat.min.toFixed(decimals)} / ${stat.max.toFixed(decimals)} / ${stat.avg.toFixed(decimals)}]</span>`;
 }
 
@@ -713,30 +711,21 @@ async function updateSystemData() {
   isUpdating = true;
   try {
     const data = await window.electron.getSystemData();
-    console.log('🖥️ RENDERER: Received data, stats count:', data.stats ? Object.keys(data.stats).length : 0);
     
     // Hide loading overlay after first successful update
     if (!firstUpdateComplete) {
       const loadingOverlay = document.getElementById('loading-overlay');
       if (loadingOverlay) {
-        console.log('✅ Hiding loading overlay');
         loadingOverlay.style.display = 'none';
-        console.log('✅ Loading overlay display:', window.getComputedStyle(loadingOverlay).display);
-      } else {
-        console.warn('⚠️ Loading overlay not found when trying to hide');
       }
       
-      // Verify container is visible
+      // Ensure container is visible
       const container = document.querySelector('.container');
       if (container) {
-        const containerStyle = window.getComputedStyle(container);
-        console.log('✅ Container display:', containerStyle.display);
-        console.log('✅ Container visibility:', containerStyle.visibility);
-        console.log('✅ Container opacity:', containerStyle.opacity);
+        container.style.display = 'block';
       }
       
       firstUpdateComplete = true;
-      console.log('✅ First data update complete, UI should now be visible');
     }
     
     // Stats are being received and processed
