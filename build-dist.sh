@@ -60,10 +60,22 @@ check_prerequisites() {
 rebuild_native() {
     print_status "Rebuilding native module for Electron..."
     
-    if ! npm run build:native 2>&1 | grep -q "Rebuild Complete"; then
-        print_warning "Native module rebuild may have issues, but continuing..."
+    # Check if native module exists first
+    if [ ! -f "build/Release/system_monitor.node" ]; then
+        print_warning "Native module not found. Building initial version..."
+        npm run build
+    fi
+    
+    # Rebuild for Electron
+    if npm run build:native > /tmp/native-build.log 2>&1; then
+        if grep -q "Rebuild Complete" /tmp/native-build.log || [ -f "build/Release/system_monitor.node" ]; then
+            print_success "Native module rebuilt successfully for Electron"
+        else
+            print_warning "Native module rebuild completed but verification uncertain"
+        fi
     else
-        print_success "Native module rebuilt successfully"
+        print_error "Native module rebuild failed! Check /tmp/native-build.log for details"
+        print_warning "Continuing anyway - electron-builder will try to rebuild during packaging"
     fi
 }
 
