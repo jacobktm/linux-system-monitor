@@ -70,33 +70,44 @@ launch_with_privileges() {
         setup_x11_auth
     fi
     
-    # Get original AppImage path (if running from AppImage)
+    # Get original AppImage path - APPIMAGE env var is set by AppImage runtime
+    # This contains the path to the original .AppImage file, not the mounted directory
     local original_appimage="${APPIMAGE:-}"
-    if [ -z "$original_appimage" ] && [ -f "$EXECUTABLE" ]; then
-        # Try to find the original AppImage path
-        # When AppImage is mounted, $0 points to AppRun, but we need the original file
-        local script_dir="$(dirname "$(readlink -f "$0")")"
-        # Check if we're in a mounted AppImage directory
-        if [ -f "$script_dir/../AppRun" ] || [ -f "$script_dir/../../AppRun" ]; then
-            # We're in a mounted AppImage, try to get the original path
-            # Check common AppImage mount points
-            if [ -n "$APPIMAGE" ]; then
-                original_appimage="$APPIMAGE"
-            elif [ -f "/proc/self/mountinfo" ]; then
-                # Try to get mount source from /proc/self/mountinfo
-                local mount_source=$(grep "$script_dir" /proc/self/mountinfo 2>/dev/null | head -1 | awk '{print $5}')
-                if [ -n "$mount_source" ] && [ -f "$mount_source" ]; then
-                    original_appimage="$mount_source"
-                fi
+    
+    # If APPIMAGE is not set, we need to find the original file path
+    # This can happen if the AppImage is invoked in an unusual way
+    if [ -z "$original_appimage" ]; then
+        # Try to find the AppImage file that mounted this directory
+        # Check /proc/self/mountinfo to find what mounted the current directory
+        local current_dir="$(dirname "$(readlink -f "$0")")"
+        if [ -f "/proc/self/mountinfo" ]; then
+            # Find the mount point that contains our current directory
+            # mountinfo format: ID parent-ID major:minor root mountpoint options - type device filesystem
+            local mount_source=$(grep "$current_dir" /proc/self/mountinfo 2>/dev/null | \
+                awk -v dir="$current_dir" '{for(i=5; i<=NF; i++) if($i ~ /^\/tmp\/\.mount_/) print $i}' | \
+                head -1)
+            
+            if [ -z "$mount_source" ]; then
+                # Try another approach: look for FUSE mounts in /tmp
+                mount_source=$(mount | grep "$current_dir" | awk '{print $1}' | head -1)
+            fi
+            
+            if [ -n "$mount_source" ] && [ -f "$mount_source" ]; then
+                original_appimage="$mount_source"
             fi
         fi
     fi
     
     # If we still don't have the original AppImage path, we can't run as root
-    # Fall back to running without elevation
-    if [ -z "$original_appimage" ] && [ "$(id -u)" -eq 0 ]; then
-        echo "Error: Cannot determine original AppImage path when running as root" >&2
-        exit 1
+    # This means we can't elevate privileges - run without elevation
+    if [ -z "$original_appimage" ]; then
+        if command -v zenity >/dev/null 2>&1; then
+            zenity --warning --title="Linux System Monitor" \
+                --text="Cannot determine AppImage path.\n\nRunning without elevated privileges.\nSome features may be unavailable." 2>/dev/null || true
+        fi
+        # Run without elevation
+        exec "$EXECUTABLE" "$@"
+        exit $?
     fi
     
     # Try GUI password prompt with sudo (retry loop for wrong password)
@@ -192,12 +203,16 @@ DISPLAY_SERVER_VAR="${APP_DISPLAY_SERVER}"
 # not the mounted executable, so the AppImage runtime can remount it properly
 if [ -n "$APPIMAGE_VAR" ] && [ -f "$APPIMAGE_VAR" ]; then
     # Execute the original AppImage file - AppImage runtime will handle mounting
+    # The AppImage runtime will detect it's running as root and remount appropriately
     exec "$APPIMAGE_VAR" --no-sandbox --ozone-platform="$DISPLAY_SERVER_VAR" "$@"
 else
-    # Fallback: try to find the original AppImage path
-    # If we can't find it, show an error
-    echo "Error: Cannot determine original AppImage path" >&2
-    echo "Please run the AppImage directly, not via sudo" >&2
+    # If APPIMAGE is not available, we cannot run properly as root
+    # This should not happen if original_appimage was found correctly above
+    echo "Error: Cannot determine original AppImage path for root execution" >&2
+    echo "APPIMAGE variable is not set. This may occur if:" >&2
+    echo "  1. The AppImage was invoked incorrectly" >&2
+    echo "  2. Environment variables were not preserved" >&2
+    echo "Please run the AppImage file directly without using sudo manually." >&2
     exit 1
 fi
 WRAPPER_EOF
