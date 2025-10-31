@@ -2,6 +2,31 @@
 const { app } = require('electron');
 app.disableHardwareAcceleration();
 
+// Ensure X11 environment variables are set if running as root
+// This helps when running elevated via sudo/pkexec
+if (process.platform === 'linux' && process.getuid && process.getuid() === 0) {
+  // Running as root - ensure X11 display is accessible
+  if (!process.env.DISPLAY && process.env.XDG_SESSION_DESKTOP) {
+    // Try to use the session display
+    process.env.DISPLAY = ':0';
+  }
+  // If XAUTHORITY is not set, try common locations
+  if (!process.env.XAUTHORITY) {
+    const { execSync } = require('child_process');
+    try {
+      // Try to get XAUTHORITY from a logged-in user's session
+      const whoami = require('os').userInfo().username;
+      const possibleXauth = `/home/${whoami}/.Xauthority`;
+      const fs = require('fs');
+      if (fs.existsSync(possibleXauth)) {
+        process.env.XAUTHORITY = possibleXauth;
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+}
+
 const { BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const si = require('systeminformation');

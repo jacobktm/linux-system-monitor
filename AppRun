@@ -46,6 +46,16 @@ needs_privileges() {
     return 1  # Doesn't need privileges
 }
 
+# Function to setup X11 authentication for root access
+setup_x11_auth() {
+    # For X11, try to allow localhost connections as fallback
+    if [ -n "$DISPLAY" ] && command -v xhost >/dev/null 2>&1; then
+        # Allow localhost connections (safe, only if xhost available)
+        # Note: This is a fallback if XAUTHORITY cookie copying fails
+        xhost +local: >/dev/null 2>&1 || true
+    fi
+}
+
 # Function to launch with GUI privilege prompt
 launch_with_privileges() {
     local display_server="x11"
@@ -53,6 +63,11 @@ launch_with_privileges() {
     # Detect display server
     if [ -n "$WAYLAND_DISPLAY" ] || [ "$XDG_SESSION_TYPE" = "wayland" ]; then
         display_server="wayland"
+    fi
+    
+    # Setup X11 authentication before elevating
+    if [ "$display_server" = "x11" ]; then
+        setup_x11_auth
     fi
     
     # Try GUI password prompt with sudo (most reliable approach)
@@ -70,18 +85,39 @@ launch_with_privileges() {
         local wrapper_script="/tmp/.linux-system-monitor-wrapper-$$.sh"
         cat > "$wrapper_script" << 'WRAPPER_EOF'
 #!/bin/bash
-# Wrapper script to run AppImage with preserved environment
-export DISPLAY="$DISPLAY"
-export WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
-export XDG_SESSION_TYPE="$XDG_SESSION_TYPE"
-export XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR"
-export XDG_CONFIG_HOME="$XDG_CONFIG_HOME"
-export XDG_DATA_HOME="$XDG_DATA_HOME"
-export HOME="$HOME"
-export USER="$USER"
-export PATH="$PATH"
-export LANG="$LANG"
-export LC_ALL="$LC_ALL"
+# Wrapper script to run AppImage with preserved environment and X11 authentication
+
+# Preserve display environment
+export DISPLAY="${DISPLAY}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY}"
+export XDG_SESSION_TYPE="${XDG_SESSION_TYPE}"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME}"
+export XDG_DATA_HOME="${XDG_DATA_HOME}"
+export HOME="${HOME}"
+export USER="${USER}"
+export PATH="${PATH}"
+export LANG="${LANG}"
+export LC_ALL="${LC_ALL}"
+
+# Critical: Preserve X11 authentication
+export XAUTHORITY="${XAUTHORITY}"
+if [ -z "$XAUTHORITY" ] && [ -n "$HOME" ]; then
+    # Default X11 auth file location
+    export XAUTHORITY="$HOME/.Xauthority"
+fi
+
+# If XAUTHORITY points to a user's home file, try to use it or copy it
+if [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ]; then
+    # Copy X11 auth cookie to temp location accessible by root
+    local temp_xauth="/tmp/.Xauthority-$$-$(whoami)"
+    if cp "$XAUTHORITY" "$temp_xauth" 2>/dev/null; then
+        chmod 644 "$temp_xauth"
+        export XAUTHORITY="$temp_xauth"
+    fi
+fi
+
+# Electron GPU flags to avoid rendering issues
 export ELECTRON_DISABLE_GPU=1
 export ELECTRON_DISABLE_GPU_COMPOSITING=1
 export ELECTRON_DISABLE_GPU_SANDBOX=1
@@ -109,12 +145,19 @@ WRAPPER_EOF
             original_appimage="$EXECUTABLE"
         fi
         
+        # Preserve X11 authentication cookie path
+        local xauth="${XAUTHORITY:-$HOME/.Xauthority}"
+        
         # Run sudo with the wrapper script, passing APPIMAGE and executable path via env
+        # Critical: Preserve X11 authentication environment
         echo "$password" | sudo -E env \
              DISPLAY="$DISPLAY" \
              WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
              XDG_SESSION_TYPE="$XDG_SESSION_TYPE" \
              XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+             XAUTHORITY="$xauth" \
+             HOME="$HOME" \
+             USER="$USER" \
              APPIMAGE="$original_appimage" \
              APP_EXECUTABLE="$EXECUTABLE" \
              APP_DISPLAY_SERVER="$display_server" \
