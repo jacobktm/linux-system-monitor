@@ -824,20 +824,28 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Test DOM manipulation - try to append a test element to body
   try {
-    const testEl = document.createElement('div');
-    testEl.style.cssText = 'position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 99999;';
-    testEl.textContent = 'DOM Test - If you see this, DOM works';
-    testEl.id = 'dom-test-element';
-    document.body.appendChild(testEl);
-    console.log('✅ Test element added to DOM');
-    
-    // Remove test element after 2 seconds
-    setTimeout(() => {
-      const el = document.getElementById('dom-test-element');
-      if (el) el.remove();
-    }, 2000);
+    if (!document.body) {
+      console.error('❌ document.body is null!');
+    } else {
+      const testEl = document.createElement('div');
+      testEl.style.cssText = 'position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 99999; font-size: 14px; font-weight: bold;';
+      testEl.textContent = 'DOM Test - If you see this, DOM works';
+      testEl.id = 'dom-test-element';
+      document.body.appendChild(testEl);
+      console.log('✅ Test element added to DOM');
+      
+      // Remove test element after 5 seconds (longer for AppImage debugging)
+      setTimeout(() => {
+        const el = document.getElementById('dom-test-element');
+        if (el) {
+          console.log('Removing test element...');
+          el.remove();
+        }
+      }, 5000);
+    }
   } catch (domTestErr) {
     console.error('❌ DOM test failed:', domTestErr);
+    console.error('❌ DOM test error stack:', domTestErr.stack);
   }
   
   // Initial update
