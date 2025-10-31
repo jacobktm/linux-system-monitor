@@ -66,6 +66,22 @@ function updateCPU(data) {
   const cpuEnergyMetric = document.getElementById('cpu-energy-metric');
   const cpuEnergyElement = document.getElementById('cpu-energy');
   
+  // Debug: Log RAPL data structure
+  if (data.raplPower) {
+    const raplKeys = Object.keys(data.raplPower);
+    if (raplKeys.length > 0) {
+      console.log('🔍 RAPL data keys:', raplKeys);
+      raplKeys.forEach(key => {
+        const rapl = data.raplPower[key];
+        console.log(`🔍 RAPL[${key}]: power=${rapl.power}W, totalKWh=${rapl.totalKWh}, totalWh=${rapl.totalWh}`);
+      });
+    } else {
+      console.warn('⚠️ RAPL object exists but has no keys');
+    }
+  } else {
+    console.warn('⚠️ No RAPL power data available');
+  }
+  
   if (data.raplPower && (data.raplPower['package-0'] || data.raplPower['core'])) {
     // Show the power metric when we have valid RAPL data
     if (powerMetric) powerMetric.style.display = '';
@@ -78,8 +94,11 @@ function updateCPU(data) {
       // Store the last valid value for fallback
       cpuPowerElement.dataset.lastValidValue = packagePower;
       const kwh = data.raplPower['package-0'].totalKWh;
-      if (kwh !== undefined && kwh !== null) {
+      console.log(`🔍 CPU Energy: Setting to ${kwh} kWh from RAPL package-0`);
+      if (kwh !== undefined && kwh !== null && !isNaN(kwh)) {
         cpuEnergyElement.textContent = `${kwh.toFixed(4)} kWh`;
+      } else {
+        console.warn('⚠️ CPU Energy: totalKWh is invalid:', kwh);
       }
     } else if (data.raplPower['core']) {
       // Fallback to core power if package power not available
@@ -89,8 +108,11 @@ function updateCPU(data) {
       // Store the last valid value for fallback
       cpuPowerElement.dataset.lastValidValue = corePower;
       const kwh = data.raplPower['core'].totalKWh;
-      if (kwh !== undefined && kwh !== null) {
+      console.log(`🔍 CPU Energy: Setting to ${kwh} kWh from RAPL core`);
+      if (kwh !== undefined && kwh !== null && !isNaN(kwh)) {
         cpuEnergyElement.textContent = `${kwh.toFixed(4)} kWh`;
+      } else {
+        console.warn('⚠️ CPU Energy: totalKWh is invalid:', kwh);
       }
     }
   } else {
