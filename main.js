@@ -6,23 +6,35 @@ app.disableHardwareAcceleration();
 // This helps when running elevated via sudo/pkexec
 if (process.platform === 'linux' && process.getuid && process.getuid() === 0) {
   // Running as root - ensure X11 display is accessible
-  if (!process.env.DISPLAY && process.env.XDG_SESSION_DESKTOP) {
-    // Try to use the session display
-    process.env.DISPLAY = ':0';
+  if (!process.env.DISPLAY) {
+    // Try common display values
+    process.env.DISPLAY = process.env.DISPLAY || ':0';
   }
-  // If XAUTHORITY is not set, try common locations
+  
+  // If XAUTHORITY is not set, try to get it from SUDO_USER or who ran the command
   if (!process.env.XAUTHORITY) {
-    const { execSync } = require('child_process');
     try {
-      // Try to get XAUTHORITY from a logged-in user's session
-      const whoami = require('os').userInfo().username;
-      const possibleXauth = `/home/${whoami}/.Xauthority`;
       const fs = require('fs');
-      if (fs.existsSync(possibleXauth)) {
-        process.env.XAUTHORITY = possibleXauth;
+      // Check SUDO_USER first (set by sudo)
+      const sudoUser = process.env.SUDO_USER || process.env.USER;
+      if (sudoUser && sudoUser !== 'root') {
+        const possibleXauth = `/home/${sudoUser}/.Xauthority`;
+        if (fs.existsSync(possibleXauth)) {
+          process.env.XAUTHORITY = possibleXauth;
+          console.log('✅ Using XAUTHORITY from SUDO_USER:', possibleXauth);
+        }
+      }
+      
+      // Fallback: check for XAUTHORITY in common location
+      if (!process.env.XAUTHORITY) {
+        const defaultXauth = '/root/.Xauthority';
+        if (fs.existsSync(defaultXauth)) {
+          process.env.XAUTHORITY = defaultXauth;
+        }
       }
     } catch (e) {
-      // Ignore errors
+      // Ignore errors - will rely on xhost fallback
+      console.warn('⚠️ Could not set XAUTHORITY:', e.message);
     }
   }
 }
