@@ -44,8 +44,15 @@ function updateCPU(data) {
   const cpu = data.cpu;
   const stats = data.stats || {};
   
+  // Check if elements exist
+  const cpuNameEl = document.getElementById('cpu-name');
+  if (!cpuNameEl) {
+    console.error('❌ DOM: cpu-name element not found!');
+    return;
+  }
+  
   // Update CPU name
-  document.getElementById('cpu-name').textContent = cpu.brand;
+  cpuNameEl.textContent = cpu.brand;
   
   // Update overall CPU metrics with stats
   document.getElementById('cpu-usage').innerHTML = formatStat(cpu.currentLoad, stats, 'cpu_usage', '%');
@@ -712,24 +719,43 @@ async function updateSystemData() {
     if (!firstUpdateComplete) {
       const loadingOverlay = document.getElementById('loading-overlay');
       if (loadingOverlay) {
+        console.log('✅ Hiding loading overlay');
         loadingOverlay.style.display = 'none';
+        console.log('✅ Loading overlay display:', window.getComputedStyle(loadingOverlay).display);
+      } else {
+        console.warn('⚠️ Loading overlay not found when trying to hide');
       }
+      
+      // Verify container is visible
+      const container = document.querySelector('.container');
+      if (container) {
+        const containerStyle = window.getComputedStyle(container);
+        console.log('✅ Container display:', containerStyle.display);
+        console.log('✅ Container visibility:', containerStyle.visibility);
+        console.log('✅ Container opacity:', containerStyle.opacity);
+      }
+      
       firstUpdateComplete = true;
       console.log('✅ First data update complete, UI should now be visible');
     }
     
     // Stats are being received and processed
     
-    updateCPU(data);
-    updateMemory(data);
-    updateGPU(data);
-    updateDisk(data);
-    updateSystemTemps(data);
-    updateFans(data);
-    updatePower(data);
-    updateBattery(data);
-    updateNetwork(data);
-    updateSystemInfo(data);
+    try {
+      updateCPU(data);
+      updateMemory(data);
+      updateGPU(data);
+      updateDisk(data);
+      updateSystemTemps(data);
+      updateFans(data);
+      updatePower(data);
+      updateBattery(data);
+      updateNetwork(data);
+      updateSystemInfo(data);
+    } catch (updateError) {
+      console.error('❌ Error in update functions:', updateError);
+      console.error('❌ Error stack:', updateError.stack);
+    }
     
     // Update timestamp and stats status
     const now = new Date();
@@ -750,10 +776,26 @@ let updateCount = 0;
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
   console.log('📋 DOM Content Loaded');
+  console.log('📋 Document ready state:', document.readyState);
+  console.log('📋 Document body:', document.body ? 'exists' : 'missing');
+  console.log('📋 Container element:', document.querySelector('.container') ? 'exists' : 'missing');
+  console.log('📋 CPU name element:', document.getElementById('cpu-name') ? 'exists' : 'missing');
+  
+  // Check if styles are loaded
+  const computedStyle = window.getComputedStyle(document.body);
+  console.log('📋 Body background color:', computedStyle.backgroundColor);
+  console.log('📋 Stylesheet count:', document.styleSheets.length);
   
   // Update loading status
   const loadingOverlay = document.getElementById('loading-overlay');
   const loadingStatus = document.getElementById('loading-status');
+  
+  if (!loadingOverlay) {
+    console.error('❌ Loading overlay element not found!');
+  }
+  if (!loadingStatus) {
+    console.error('❌ Loading status element not found!');
+  }
   
   if (loadingStatus) {
     loadingStatus.textContent = 'Checking IPC bridge...';
@@ -778,6 +820,24 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (loadingStatus) {
     loadingStatus.textContent = 'Loading system data...';
+  }
+  
+  // Test DOM manipulation - try to append a test element to body
+  try {
+    const testEl = document.createElement('div');
+    testEl.style.cssText = 'position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 99999;';
+    testEl.textContent = 'DOM Test - If you see this, DOM works';
+    testEl.id = 'dom-test-element';
+    document.body.appendChild(testEl);
+    console.log('✅ Test element added to DOM');
+    
+    // Remove test element after 2 seconds
+    setTimeout(() => {
+      const el = document.getElementById('dom-test-element');
+      if (el) el.remove();
+    }, 2000);
+  } catch (domTestErr) {
+    console.error('❌ DOM test failed:', domTestErr);
   }
   
   // Initial update

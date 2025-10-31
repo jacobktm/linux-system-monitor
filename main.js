@@ -172,11 +172,23 @@ function createWindow() {
   mainWindow.loadFile(htmlPath).catch(err => {
     console.error('❌ Error loading HTML file:', err);
     mainWindow.show(); // Show window even if load fails
+    mainWindow.webContents.openDevTools(); // Open DevTools to debug
   });
   
-  // Open DevTools in development or if load fails
+  // Open DevTools in development or after a delay to check if content renders
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
+  } else {
+    // Open DevTools after 3 seconds if content might not be rendering
+    // User can close it if everything works
+    setTimeout(() => {
+      mainWindow.webContents.openDevTools();
+      console.log('🔧 DevTools opened automatically for debugging');
+      // Close DevTools after 10 seconds if user doesn't need it
+      setTimeout(() => {
+        // Don't auto-close - let user decide
+      }, 10000);
+    }, 3000);
   }
 }
 
