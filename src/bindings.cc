@@ -1,5 +1,7 @@
 #include <nan.h>
 #include "system_monitor.h"
+#include <limits>
+#include <cmath>
 
 using namespace v8;
 
@@ -153,12 +155,13 @@ NAN_METHOD(GetBatteryCalculated) {
     Local<Object> obj = Nan::New<Object>();
     Nan::Set(obj, Nan::New("status").ToLocalChecked(), Nan::New(status).ToLocalChecked());
     Nan::Set(obj, Nan::New("acConnected").ToLocalChecked(), Nan::New(ac_connected));
-    if (!std::isnan(voltage_v)) Nan::Set(obj, Nan::New("voltage").ToLocalChecked(), Nan::New(voltage_v));
-    if (!std::isnan(current_a)) Nan::Set(obj, Nan::New("current").ToLocalChecked(), Nan::New(current_a));
-    if (!std::isnan(power_w)) Nan::Set(obj, Nan::New("powerWatts").ToLocalChecked(), Nan::New(power_w));
-    if (!std::isnan(energy_now_wh)) Nan::Set(obj, Nan::New("energyNowWh").ToLocalChecked(), Nan::New(energy_now_wh));
-    if (!std::isnan(energy_full_wh)) Nan::Set(obj, Nan::New("energyFullWh").ToLocalChecked(), Nan::New(energy_full_wh));
-    if (!std::isnan(estimated_hours)) Nan::Set(obj, Nan::New("estimatedHours").ToLocalChecked(), Nan::New(estimated_hours));
+    // Check for NaN using comparison (NaN != NaN is always true)
+    if (voltage_v == voltage_v) Nan::Set(obj, Nan::New("voltage").ToLocalChecked(), Nan::New(voltage_v));
+    if (current_a == current_a) Nan::Set(obj, Nan::New("current").ToLocalChecked(), Nan::New(current_a));
+    if (power_w == power_w) Nan::Set(obj, Nan::New("powerWatts").ToLocalChecked(), Nan::New(power_w));
+    if (energy_now_wh == energy_now_wh) Nan::Set(obj, Nan::New("energyNowWh").ToLocalChecked(), Nan::New(energy_now_wh));
+    if (energy_full_wh == energy_full_wh) Nan::Set(obj, Nan::New("energyFullWh").ToLocalChecked(), Nan::New(energy_full_wh));
+    if (estimated_hours == estimated_hours) Nan::Set(obj, Nan::New("estimatedHours").ToLocalChecked(), Nan::New(estimated_hours));
     Nan::Set(obj, Nan::New("state").ToLocalChecked(), Nan::New(derived_state).ToLocalChecked());
     info.GetReturnValue().Set(obj);
 }
