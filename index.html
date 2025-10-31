@@ -60,22 +60,24 @@
       <section class="card memory-card">
         <h2>🧠 Memory</h2>
         <div class="memory-info">
-          <div class="metric-row">
-            <div class="metric">
-              <span class="label">Usage</span>
-              <span id="mem-usage" class="value">0%</span>
+          <div class="memory-metrics-wrapper">
+            <div class="memory-metrics-row">
+              <div class="metric">
+                <span class="label">Used</span>
+                <span id="mem-used" class="value">0 GB</span>
+              </div>
+              <div class="metric">
+                <span class="label">Total</span>
+                <span id="mem-total" class="value">0 GB</span>
+              </div>
+              <div class="metric memory-usage-metric">
+                <span class="label">Usage</span>
+                <span id="mem-usage" class="value">0%</span>
+              </div>
             </div>
-            <div class="metric">
-              <span class="label">Used</span>
-              <span id="mem-used" class="value">0 GB</span>
+            <div class="progress-bar">
+              <div id="mem-progress" class="progress-fill"></div>
             </div>
-            <div class="metric">
-              <span class="label">Total</span>
-              <span id="mem-total" class="value">0 GB</span>
-            </div>
-          </div>
-          <div class="progress-bar">
-            <div id="mem-progress" class="progress-fill"></div>
           </div>
           <div class="metric-row" style="margin-top: 15px;">
             <div class="metric">

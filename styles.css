@@ -435,6 +435,49 @@ span .stat-range {
   min-width: 100%;
 }
 
+/* Memory metrics layout: responsive with Usage always above progress bar */
+.memory-metrics-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.memory-metrics-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.memory-metrics-row .metric {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* When wide: all three inline, Usage can be smaller */
+@media (min-width: 600px) {
+  .memory-metrics-row .metric {
+    flex: 1 1 0;
+  }
+  
+  .memory-usage-metric {
+    flex: 1 1 auto;
+  }
+}
+
+/* When narrow: Used and Total stack above, then Usage, then bar */
+@media (max-width: 599px) {
+  .memory-metrics-row .metric:not(.memory-usage-metric) {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 140px;
+  }
+  
+  .memory-usage-metric {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
+
 .battery-status {
   display: flex;
   align-items: center;
