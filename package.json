@@ -83,10 +83,10 @@
       "category": "System"
     },
     "appImage": {
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "linux-system-monitor-${version}-${arch}.${ext}"
     },
     "deb": {
-      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "artifactName": "linux-system-monitor-${version}-${arch}.${ext}",
       "depends": [],
       "maintainer": "Linux System Monitor <system-monitor@localhost>"
     },

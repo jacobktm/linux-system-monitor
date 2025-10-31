@@ -111,3 +111,6 @@ temp/
 
 # Build output
 build/
+
+# Prebuilt native modules
+bin/
