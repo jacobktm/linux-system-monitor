@@ -61,7 +61,8 @@
       "!binding.gyp",
       "!setup.sh",
       "!test_*.js",
-      "!test_*.sh"
+      "!test_*.sh",
+      "build/Release/system_monitor.node"
     ],
     "linux": {
       "target": [
@@ -93,6 +94,7 @@
     "asar": true,
     "afterPack": "scripts/after-pack.js",
     "asarUnpack": [
+      "build/Release/*.node",
       "**/build/Release/*.node",
       "**/node_modules/**/*.node"
     ]
