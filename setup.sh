@@ -53,39 +53,98 @@ detect_distro() {
     fi
 }
 
-# Function to install Node.js if not present
+# Function to get Node.js version number
+get_node_version() {
+    if command_exists node; then
+        node --version | sed 's/v//' | cut -d. -f1
+    else
+        echo "0"
+    fi
+}
+
+# Function to install or upgrade Node.js to latest version
 install_nodejs() {
     local distro=$1
+    local current_version=$(get_node_version)
+    local min_version=22
     
-    print_status "Installing Node.js..."
+    print_status "Installing/upgrading Node.js to latest version..."
     
     case $distro in
         "ubuntu"|"debian")
-            if ! command_exists node; then
-                print_status "Adding NodeSource repository..."
-                curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-                sudo apt-get install -y nodejs
+            # Check if Node.js is installed and version
+            if command_exists node; then
+                local node_ver=$(node --version)
+                print_status "Current Node.js version: $node_ver"
+                if [ "$current_version" -lt "$min_version" ]; then
+                    print_warning "Node.js version $current_version is too old. Upgrading to latest..."
+                else
+                    print_status "Node.js version is compatible. Checking for updates..."
+                fi
+            fi
+            
+            # Always install latest from NodeSource (uses latest stable, currently v23+)
+            print_status "Adding NodeSource repository for latest Node.js..."
+            curl -fsSL https://deb.nodesource.com/setup_23.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+            
+            # Verify installation
+            if command_exists node; then
+                local new_version=$(node --version)
+                print_success "Node.js installed/upgraded: $new_version"
             else
-                print_success "Node.js is already installed: $(node --version)"
+                print_error "Failed to install Node.js"
+                return 1
             fi
             ;;
         "fedora"|"rhel"|"centos")
-            if ! command_exists node; then
-                sudo dnf install -y nodejs npm
+            if command_exists node; then
+                local node_ver=$(node --version)
+                print_status "Current Node.js version: $node_ver"
+                if [ "$current_version" -lt "$min_version" ]; then
+                    print_warning "Node.js version $current_version is too old. Installing latest..."
+                    # Remove old version
+                    sudo dnf remove -y nodejs npm 2>/dev/null || true
+                fi
+            fi
+            
+            # Install latest Node.js from NodeSource
+            print_status "Adding NodeSource repository for latest Node.js..."
+            curl -fsSL https://rpm.nodesource.com/setup_23.x | sudo bash -
+            sudo dnf install -y nodejs npm
+            
+            if command_exists node; then
+                local new_version=$(node --version)
+                print_success "Node.js installed/upgraded: $new_version"
             else
-                print_success "Node.js is already installed: $(node --version)"
+                print_error "Failed to install Node.js"
+                return 1
             fi
             ;;
         "arch"|"manjaro")
-            if ! command_exists node; then
-                sudo pacman -S --noconfirm nodejs npm
+            if command_exists node; then
+                local node_ver=$(node --version)
+                print_status "Current Node.js version: $node_ver"
+                if [ "$current_version" -lt "$min_version" ]; then
+                    print_warning "Node.js version $current_version is too old. Upgrading..."
+                fi
+            fi
+            
+            # Update package database and install/upgrade Node.js
+            sudo pacman -Sy --noconfirm nodejs npm
+            
+            if command_exists node; then
+                local new_version=$(node --version)
+                print_success "Node.js installed/upgraded: $new_version"
             else
-                print_success "Node.js is already installed: $(node --version)"
+                print_error "Failed to install Node.js"
+                return 1
             fi
             ;;
         *)
-            print_warning "Unknown distribution. Please install Node.js manually."
+            print_warning "Unknown distribution. Please install Node.js v22+ manually."
             print_warning "Visit: https://nodejs.org/en/download/package-manager/"
+            print_warning "Required: Node.js >= 22.0.0"
             return 1
             ;;
     esac
@@ -206,7 +265,7 @@ build_native_addon() {
         npm run clean
     fi
     
-    # Build the native addon for Electron using electron-rebuild
+    # Build the native addon for Electron using @electron/rebuild
     # This will compile with the correct ABI for Electron
     print_status "Building for Electron (this may take a few minutes)..."
     npm run build:native
