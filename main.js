@@ -167,8 +167,32 @@ function createWindow() {
   });
 
   // Load the HTML file
+  // In packaged apps, __dirname points to resources/app.asar
+  // In development, __dirname points to the project root
   const htmlPath = path.join(__dirname, 'index.html');
   console.log('📄 Loading HTML from:', htmlPath);
+  console.log('📄 __dirname:', __dirname);
+  console.log('📄 Process type:', process.type || 'main');
+  
+  // Verify file exists
+  if (fs.existsSync(htmlPath)) {
+    console.log('✅ HTML file exists');
+  } else {
+    console.error('❌ HTML file does not exist at:', htmlPath);
+    // Try alternative paths
+    const altPaths = [
+      path.join(__dirname, '..', 'index.html'),
+      path.join(process.resourcesPath, 'app', 'index.html'),
+      path.join(process.resourcesPath, 'app.asar', 'index.html')
+    ];
+    for (const altPath of altPaths) {
+      if (fs.existsSync(altPath)) {
+        console.log('✅ Found HTML at alternative path:', altPath);
+        break;
+      }
+    }
+  }
+  
   mainWindow.loadFile(htmlPath).catch(err => {
     console.error('❌ Error loading HTML file:', err);
     mainWindow.show(); // Show window even if load fails

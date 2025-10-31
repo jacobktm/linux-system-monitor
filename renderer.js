@@ -784,7 +784,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check if styles are loaded
   const computedStyle = window.getComputedStyle(document.body);
   console.log('📋 Body background color:', computedStyle.backgroundColor);
+  console.log('📋 Body display:', computedStyle.display);
   console.log('📋 Stylesheet count:', document.styleSheets.length);
+  
+  // Check stylesheet loading
+  if (document.styleSheets.length > 0) {
+    try {
+      const firstSheet = document.styleSheets[0];
+      console.log('📋 First stylesheet:', firstSheet.href || 'inline');
+      console.log('📋 Stylesheet rules count:', firstSheet.cssRules ? firstSheet.cssRules.length : 'N/A');
+    } catch (e) {
+      console.warn('⚠️ Cannot access stylesheet (CORS or same-origin):', e.message);
+    }
+  }
   
   // Update loading status
   const loadingOverlay = document.getElementById('loading-overlay');
@@ -827,21 +839,57 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!document.body) {
       console.error('❌ document.body is null!');
     } else {
+      // Check body computed styles
+      const bodyStyle = window.getComputedStyle(document.body);
+      console.log('📋 Body computed styles:', {
+        display: bodyStyle.display,
+        visibility: bodyStyle.visibility,
+        opacity: bodyStyle.opacity,
+        width: bodyStyle.width,
+        height: bodyStyle.height,
+        backgroundColor: bodyStyle.backgroundColor
+      });
+      
+      // Create test element with very obvious styling
       const testEl = document.createElement('div');
-      testEl.style.cssText = 'position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 99999; font-size: 14px; font-weight: bold;';
-      testEl.textContent = 'DOM Test - If you see this, DOM works';
+      testEl.style.cssText = 'position: fixed !important; top: 10px !important; right: 10px !important; background: red !important; color: white !important; padding: 20px !important; z-index: 999999 !important; font-size: 20px !important; font-weight: bold !important; border: 5px solid yellow !important;';
+      testEl.textContent = '🔴 DOM TEST - If you see this, DOM works! 🔴';
       testEl.id = 'dom-test-element';
       document.body.appendChild(testEl);
-      console.log('✅ Test element added to DOM');
       
-      // Remove test element after 5 seconds (longer for AppImage debugging)
+      // Verify it was added
+      const addedEl = document.getElementById('dom-test-element');
+      if (addedEl) {
+        const elStyle = window.getComputedStyle(addedEl);
+        console.log('✅ Test element added to DOM');
+        console.log('📋 Test element computed styles:', {
+          display: elStyle.display,
+          visibility: elStyle.visibility,
+          opacity: elStyle.opacity,
+          backgroundColor: elStyle.backgroundColor,
+          position: elStyle.position,
+          zIndex: elStyle.zIndex
+        });
+        console.log('📋 Test element offset:', {
+          offsetTop: addedEl.offsetTop,
+          offsetLeft: addedEl.offsetLeft,
+          offsetWidth: addedEl.offsetWidth,
+          offsetHeight: addedEl.offsetHeight
+        });
+      } else {
+        console.error('❌ Test element was not found after adding!');
+      }
+      
+      // Keep test element longer for debugging (30 seconds)
       setTimeout(() => {
         const el = document.getElementById('dom-test-element');
         if (el) {
-          console.log('Removing test element...');
+          console.log('Removing test element after 30 seconds...');
           el.remove();
+        } else {
+          console.warn('⚠️ Test element already removed or not found');
         }
-      }, 5000);
+      }, 30000);
     }
   } catch (domTestErr) {
     console.error('❌ DOM test failed:', domTestErr);
