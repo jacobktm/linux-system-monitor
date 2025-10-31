@@ -83,8 +83,7 @@
       "category": "System"
     },
     "appImage": {
-      "artifactName": "${productName}-${version}-${arch}.${ext}",
-      "systemIntegration": "ask"
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "deb": {
       "artifactName": "${productName}-${version}-${arch}.${ext}",
