@@ -70,16 +70,76 @@ launch_with_privileges() {
         setup_x11_auth
     fi
     
-    # Try GUI password prompt with sudo (most reliable approach)
-    local password=""
-    if command -v zenity >/dev/null 2>&1; then
-        password=$(zenity --password --title="Linux System Monitor - Privileges Required" \
-            --text="Administrator privileges are required to access Intel RAPL power monitoring data.\n\nPlease enter your password:" 2>/dev/null)
-    elif command -v kdialog >/dev/null 2>&1; then
-        password=$(kdialog --password "Administrator privileges are required to access Intel RAPL power monitoring data.\n\nPlease enter your password:" 2>/dev/null)
+    # Get original AppImage path (if running from AppImage)
+    local original_appimage="${APPIMAGE:-}"
+    if [ -z "$original_appimage" ] && [ -f "$EXECUTABLE" ]; then
+        # Try to find the original AppImage path
+        # When AppImage is mounted, $0 points to AppRun, but we need the original file
+        local script_dir="$(dirname "$(readlink -f "$0")")"
+        # Check if we're in a mounted AppImage directory
+        if [ -f "$script_dir/../AppRun" ] || [ -f "$script_dir/../../AppRun" ]; then
+            # We're in a mounted AppImage, try to get the original path
+            # Check common AppImage mount points
+            if [ -n "$APPIMAGE" ]; then
+                original_appimage="$APPIMAGE"
+            elif [ -f "/proc/self/mountinfo" ]; then
+                # Try to get mount source from /proc/self/mountinfo
+                local mount_source=$(grep "$script_dir" /proc/self/mountinfo 2>/dev/null | head -1 | awk '{print $5}')
+                if [ -n "$mount_source" ] && [ -f "$mount_source" ]; then
+                    original_appimage="$mount_source"
+                fi
+            fi
+        fi
     fi
     
-    if [ -n "$password" ]; then
+    # If we still don't have the original AppImage path, we can't run as root
+    # Fall back to running without elevation
+    if [ -z "$original_appimage" ] && [ "$(id -u)" -eq 0 ]; then
+        echo "Error: Cannot determine original AppImage path when running as root" >&2
+        exit 1
+    fi
+    
+    # Try GUI password prompt with sudo (retry loop for wrong password)
+    local max_attempts=3
+    local attempt=0
+    local password=""
+    local sudo_success=false
+    
+    while [ $attempt -lt $max_attempts ]; do
+        attempt=$((attempt + 1))
+        password=""
+        
+        # Prompt for password graphically
+        if command -v zenity >/dev/null 2>&1; then
+            if [ $attempt -eq 1 ]; then
+                password=$(zenity --password --title="Linux System Monitor - Privileges Required" \
+                    --text="Administrator privileges are required to access Intel RAPL power monitoring data.\n\nPlease enter your password:" 2>/dev/null)
+            else
+                password=$(zenity --password --title="Linux System Monitor - Privileges Required" \
+                    --text="Authentication failed. Please try again.\n\nAttempt $attempt of $max_attempts:" 2>/dev/null)
+            fi
+        elif command -v kdialog >/dev/null 2>&1; then
+            if [ $attempt -eq 1 ]; then
+                password=$(kdialog --password "Administrator privileges are required to access Intel RAPL power monitoring data.\n\nPlease enter your password:" 2>/dev/null)
+            else
+                password=$(kdialog --password "Authentication failed. Please try again.\n\nAttempt $attempt of $max_attempts:" 2>/dev/null)
+            fi
+        fi
+        
+        # If user cancelled (empty password from GUI)
+        if [ -z "$password" ]; then
+            # User cancelled - exit gracefully
+            exit 0
+        fi
+        
+        # Test sudo with this password
+        if echo "$password" | sudo -S true 2>/dev/null; then
+            sudo_success=true
+            break
+        fi
+    done
+    
+    if [ "$sudo_success" = true ] && [ -n "$password" ]; then
         # Create a wrapper script that sudo can execute
         # This avoids issues with AppImage mount paths and permissions
         local wrapper_script="/tmp/.linux-system-monitor-wrapper-$$.sh"
@@ -128,29 +188,28 @@ EXECUTABLE_VAR="${APP_EXECUTABLE}"
 DISPLAY_SERVER_VAR="${APP_DISPLAY_SERVER}"
 
 # Use APPIMAGE environment variable if available (preferred)
+# When running as root via sudo, we need to execute the original AppImage file,
+# not the mounted executable, so the AppImage runtime can remount it properly
 if [ -n "$APPIMAGE_VAR" ] && [ -f "$APPIMAGE_VAR" ]; then
+    # Execute the original AppImage file - AppImage runtime will handle mounting
     exec "$APPIMAGE_VAR" --no-sandbox --ozone-platform="$DISPLAY_SERVER_VAR" "$@"
 else
-    # Fallback to executable path
-    exec "$EXECUTABLE_VAR" --no-sandbox --ozone-platform="$DISPLAY_SERVER_VAR" "$@"
+    # Fallback: try to find the original AppImage path
+    # If we can't find it, show an error
+    echo "Error: Cannot determine original AppImage path" >&2
+    echo "Please run the AppImage directly, not via sudo" >&2
+    exit 1
 fi
 WRAPPER_EOF
         chmod 755 "$wrapper_script"
-        
-        # Get original AppImage path (if running from AppImage)
-        local original_appimage="${APPIMAGE:-}"
-        if [ -z "$original_appimage" ] && [ -f "$EXECUTABLE" ]; then
-            # If not set, try to get from the executable's location
-            # This handles the case where we're not running from the AppImage directly
-            original_appimage="$EXECUTABLE"
-        fi
         
         # Preserve X11 authentication cookie path
         local xauth="${XAUTHORITY:-$HOME/.Xauthority}"
         
         # Run sudo with the wrapper script, passing APPIMAGE and executable path via env
         # Critical: Preserve X11 authentication environment
-        echo "$password" | sudo -E env \
+        # Use -S to accept password from stdin
+        echo "$password" | sudo -S -E env \
              DISPLAY="$DISPLAY" \
              WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
              XDG_SESSION_TYPE="$XDG_SESSION_TYPE" \
@@ -165,6 +224,11 @@ WRAPPER_EOF
         
         local exit_code=$?
         rm -f "$wrapper_script"
+        
+        # Clear password from memory (security best practice)
+        password=""
+        unset password
+        
         exit $exit_code
     elif command -v pkexec >/dev/null 2>&1; then
         # Fallback to pkexec if GUI password prompt failed
