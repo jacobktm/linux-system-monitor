@@ -66,16 +66,28 @@ rebuild_native() {
         npm run build
     fi
     
-    # Rebuild for Electron
+    # Note: electron-builder will automatically rebuild native modules during packaging
+    # via npmRebuild: true. This manual step is optional but can catch issues early.
+    # We'll attempt it but not fail if it doesn't work.
+    print_status "Attempting manual rebuild (electron-builder will also rebuild during packaging)..."
+    
+    # Try rebuild, but don't fail if it doesn't work
     if npm run build:native > /tmp/native-build.log 2>&1; then
         if grep -q "Rebuild Complete" /tmp/native-build.log || [ -f "build/Release/system_monitor.node" ]; then
             print_success "Native module rebuilt successfully for Electron"
         else
-            print_warning "Native module rebuild completed but verification uncertain"
+            print_warning "Manual rebuild completed but verification uncertain"
+            print_status "Note: electron-builder will rebuild during packaging anyway"
         fi
     else
-        print_error "Native module rebuild failed! Check /tmp/native-build.log for details"
-        print_warning "Continuing anyway - electron-builder will try to rebuild during packaging"
+        # Check if it's the known module-dir issue
+        if grep -q "paths\[0\].*undefined" /tmp/native-build.log; then
+            print_warning "Manual rebuild failed (known @electron/rebuild issue with module-dir)"
+            print_status "This is OK - electron-builder will automatically rebuild during packaging"
+        else
+            print_warning "Native module rebuild failed - see /tmp/native-build.log for details"
+            print_status "Continuing - electron-builder will rebuild during packaging via npmRebuild: true"
+        fi
     fi
 }
 
