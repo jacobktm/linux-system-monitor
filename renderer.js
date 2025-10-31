@@ -788,14 +788,40 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('📋 Stylesheet count:', document.styleSheets.length);
   
   // Check stylesheet loading
-  if (document.styleSheets.length > 0) {
+  console.log('📋 Checking stylesheets...');
+  for (let i = 0; i < document.styleSheets.length; i++) {
     try {
-      const firstSheet = document.styleSheets[0];
-      console.log('📋 First stylesheet:', firstSheet.href || 'inline');
-      console.log('📋 Stylesheet rules count:', firstSheet.cssRules ? firstSheet.cssRules.length : 'N/A');
+      const sheet = document.styleSheets[i];
+      console.log(`📋 Stylesheet ${i}:`, sheet.href || sheet.ownerNode?.tagName || 'unknown');
+      if (sheet.cssRules) {
+        console.log(`📋   Rules count: ${sheet.cssRules.length}`);
+        // Try to access first rule to verify it's loaded
+        if (sheet.cssRules.length > 0) {
+          console.log(`📋   First rule: ${sheet.cssRules[0].cssText.substring(0, 50)}...`);
+        }
+      } else {
+        console.warn(`⚠️   Stylesheet ${i} rules not accessible (may be cross-origin or failed to load)`);
+      }
     } catch (e) {
-      console.warn('⚠️ Cannot access stylesheet (CORS or same-origin):', e.message);
+      console.warn(`⚠️ Cannot access stylesheet ${i}:`, e.message);
     }
+  }
+  
+  // Check if CSS link tag exists
+  const cssLink = document.querySelector('link[rel="stylesheet"]');
+  if (cssLink) {
+    console.log('📋 CSS link tag found:', cssLink.href);
+    console.log('📋 CSS link computed:', window.getComputedStyle(cssLink).display);
+  } else {
+    console.error('❌ No CSS link tag found in HTML!');
+  }
+  
+  // Check if renderer.js script tag exists
+  const scriptTag = document.querySelector('script[src="renderer.js"]');
+  if (scriptTag) {
+    console.log('📋 Renderer script tag found:', scriptTag.src);
+  } else {
+    console.warn('⚠️ Renderer script tag not found (may have already loaded)');
   }
   
   // Update loading status
