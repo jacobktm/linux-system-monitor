@@ -324,35 +324,44 @@ function updateGPU(data) {
       `;
     }
     
-    // Power metrics
+    // Power metrics - Power Draw and Energy on one line, Power Limit on its own line below
     if ((gpu.powerDraw !== null && gpu.powerDraw !== undefined) || (gpu.powerLimit !== null && gpu.powerLimit !== undefined)) {
       const powerText = (gpu.powerDraw !== null && gpu.powerDraw !== undefined) ? formatStat(gpu.powerDraw, stats, 'gpu_power', 'W') : '';
       const energyText = (gpu.energyKWh !== null && gpu.energyKWh !== undefined)
         ? `${gpu.energyKWh.toFixed(4)} kWh`
         : '';
       
-      metricsHTML += `
-        <div class="metric-row">
-          ${(gpu.powerDraw !== null && gpu.powerDraw !== undefined) ? `
-            <div class="metric">
-              <span class="label">Power Draw</span>
-              <span class="value">${powerText}</span>
-            </div>
-          ` : ''}
-          ${(gpu.powerLimit !== null && gpu.powerLimit !== undefined) ? `
+      // Power Draw and Energy on same row
+      if ((gpu.powerDraw !== null && gpu.powerDraw !== undefined) || energyText) {
+        metricsHTML += `
+          <div class="metric-row">
+            ${(gpu.powerDraw !== null && gpu.powerDraw !== undefined) ? `
+              <div class="metric">
+                <span class="label">Power Draw</span>
+                <span class="value">${powerText}</span>
+              </div>
+            ` : ''}
+            ${energyText ? `
+              <div class="metric">
+                <span class="label">Energy</span>
+                <span class="value">${energyText}</span>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+      
+      // Power Limit on its own row below
+      if (gpu.powerLimit !== null && gpu.powerLimit !== undefined) {
+        metricsHTML += `
+          <div class="metric-row">
             <div class="metric">
               <span class="label">Power Limit</span>
               <span class="value">${gpu.powerLimit.toFixed(0)}W</span>
             </div>
-          ` : ''}
-          ${energyText ? `
-            <div class="metric">
-              <span class="label">Energy</span>
-              <span class="value">${energyText}</span>
-            </div>
-          ` : ''}
-        </div>
-      `;
+          </div>
+        `;
+      }
     }
     
     // Clock speeds
