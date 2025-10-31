@@ -7,7 +7,11 @@
         "src/bindings.cc"
       ],
       "include_dirs": [
-        "<!(node -e \"require('nan')\")"
+        "<!@(node -p \"require('node-addon-api').include\")"
+      ],
+      "defines": [
+        "NAPI_DISABLE_CPP_EXCEPTIONS",
+        "NAPI_VERSION=10"
       ],
       "conditions": [
         ["OS=='linux'", {

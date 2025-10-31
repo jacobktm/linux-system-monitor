@@ -24,19 +24,19 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^27.0.0",
+    "electron": "^39.0.0",
     "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
-    "nan": "^2.17.0",
     "node-gyp": "^10.0.0"
   },
   "dependencies": {
-    "systeminformation": "^5.21.0"
+    "node-addon-api": "^8.0.0",
+    "systeminformation": "^5.21.26"
   },
   "build": {
     "appId": "com.linux-system-monitor.app",
     "productName": "Linux System Monitor",
-    "copyright": "Copyright © 2024",
+    "copyright": "Copyright © 2025",
     "directories": {
       "output": "dist"
     },

@@ -1,5 +1,4 @@
 #include "system_monitor.h"
-#include <nan.h>
 #include <fstream>
 #include <sstream>
 #include <dirent.h>

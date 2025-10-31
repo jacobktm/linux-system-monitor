@@ -18,12 +18,31 @@ fi
 # Function to check if we need elevated privileges
 needs_privileges() {
     # Check if we can read RAPL power data (requires root on some systems)
-    if [ ! -r "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj" ] 2>/dev/null; then
-        # Also check if we're already root
-        if [ "$(id -u)" -ne 0 ]; then
-            return 0  # Needs privileges and we're not root
+    # Check multiple possible RAPL paths
+    local rapl_paths=(
+        "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj"
+        "/sys/class/powercap/intel-rapl/intel-rapl:1/energy_uj"
+        "/sys/class/powercap/intel-rapl:0/energy_uj"
+    )
+    
+    local can_read_rapl=false
+    for rapl_path in "${rapl_paths[@]}"; do
+        if [ -r "$rapl_path" ] 2>/dev/null; then
+            can_read_rapl=true
+            break
         fi
+    done
+    
+    # Also check if we're already root
+    if [ "$(id -u)" -eq 0 ]; then
+        return 1  # Already root, doesn't need elevation
     fi
+    
+    # If we can't read RAPL and we're not root, we need privileges
+    if [ "$can_read_rapl" = false ]; then
+        return 0  # Needs privileges
+    fi
+    
     return 1  # Doesn't need privileges
 }
 

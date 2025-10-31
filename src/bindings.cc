@@ -1,140 +1,154 @@
-#include <nan.h>
+#include <napi.h>
 #include "system_monitor.h"
 #include <limits>
 #include <cmath>
 
-using namespace v8;
+using namespace Napi;
 
 // Global SystemMonitor instance
 SystemMonitor* g_monitor = nullptr;
 
 // Initialize the native addon
-NAN_METHOD(Initialize) {
+Value Initialize(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
         g_monitor = new SystemMonitor();
     }
-    info.GetReturnValue().Set(Nan::New<Boolean>(true));
+    return Boolean::New(env, true);
 }
 
 // Get CPU cores data
-NAN_METHOD(GetCPUCores) {
+Value GetCPUCores(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
     std::vector<CoreData> cores = g_monitor->getCPUCores();
-    Local<Array> result = Nan::New<Array>(cores.size());
+    Array result = Array::New(env, cores.size());
     
     for (size_t i = 0; i < cores.size(); i++) {
-        Local<Object> core = Nan::New<Object>();
-        Nan::Set(core, Nan::New("load").ToLocalChecked(), Nan::New<Number>(cores[i].load));
-        Nan::Set(core, Nan::New("frequency").ToLocalChecked(), Nan::New<Number>(cores[i].frequency));
-        Nan::Set(core, Nan::New("temperature").ToLocalChecked(), Nan::New<Number>(cores[i].temperature));
-        Nan::Set(result, i, core);
+        Object core = Object::New(env);
+        core.Set("load", Number::New(env, cores[i].load));
+        core.Set("frequency", Number::New(env, cores[i].frequency));
+        core.Set("temperature", Number::New(env, cores[i].temperature));
+        result[i] = core;
     }
     
-    info.GetReturnValue().Set(result);
+    return result;
 }
 
 // Get temperature sensors
-NAN_METHOD(GetTemperatureSensors) {
+Value GetTemperatureSensors(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
     std::vector<SensorData> sensors = g_monitor->getTemperatureSensors();
-    Local<Array> result = Nan::New<Array>(sensors.size());
+    Array result = Array::New(env, sensors.size());
     
     for (size_t i = 0; i < sensors.size(); i++) {
-        Local<Object> sensor = Nan::New<Object>();
-        Nan::Set(sensor, Nan::New("name").ToLocalChecked(), Nan::New<String>(sensors[i].name).ToLocalChecked());
-        Nan::Set(sensor, Nan::New("label").ToLocalChecked(), Nan::New<String>(sensors[i].label).ToLocalChecked());
-        Nan::Set(sensor, Nan::New("value").ToLocalChecked(), Nan::New<Number>(sensors[i].value));
-        Nan::Set(sensor, Nan::New("type").ToLocalChecked(), Nan::New<String>(sensors[i].type).ToLocalChecked());
-        Nan::Set(result, i, sensor);
+        Object sensor = Object::New(env);
+        sensor.Set("name", String::New(env, sensors[i].name));
+        sensor.Set("label", String::New(env, sensors[i].label));
+        sensor.Set("value", Number::New(env, sensors[i].value));
+        sensor.Set("type", String::New(env, sensors[i].type));
+        result[i] = sensor;
     }
     
-    info.GetReturnValue().Set(result);
+    return result;
 }
 
 // Get DDR5 temperatures
-NAN_METHOD(GetDDR5Temperatures) {
+Value GetDDR5Temperatures(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
     std::vector<SensorData> sensors = g_monitor->getDDR5Temperatures();
-    Local<Array> result = Nan::New<Array>(sensors.size());
+    Array result = Array::New(env, sensors.size());
     
     for (size_t i = 0; i < sensors.size(); i++) {
-        Local<Object> sensor = Nan::New<Object>();
-        Nan::Set(sensor, Nan::New("name").ToLocalChecked(), Nan::New<String>(sensors[i].name).ToLocalChecked());
-        Nan::Set(sensor, Nan::New("label").ToLocalChecked(), Nan::New<String>(sensors[i].label).ToLocalChecked());
-        Nan::Set(sensor, Nan::New("value").ToLocalChecked(), Nan::New<Number>(sensors[i].value));
-        Nan::Set(sensor, Nan::New("type").ToLocalChecked(), Nan::New<String>(sensors[i].type).ToLocalChecked());
-        Nan::Set(result, i, sensor);
+        Object sensor = Object::New(env);
+        sensor.Set("name", String::New(env, sensors[i].name));
+        sensor.Set("label", String::New(env, sensors[i].label));
+        sensor.Set("value", Number::New(env, sensors[i].value));
+        sensor.Set("type", String::New(env, sensors[i].type));
+        result[i] = sensor;
     }
     
-    info.GetReturnValue().Set(result);
+    return result;
 }
 
 // Get RAPL power data
-NAN_METHOD(GetRAPLPower) {
+Value GetRAPLPower(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
     std::vector<SensorData> sensors = g_monitor->getRAPLPower();
-    Local<Array> result = Nan::New<Array>(sensors.size());
+    Array result = Array::New(env, sensors.size());
     
     for (size_t i = 0; i < sensors.size(); i++) {
-        Local<Object> sensor = Nan::New<Object>();
-        Nan::Set(sensor, Nan::New("name").ToLocalChecked(), Nan::New<String>(sensors[i].name).ToLocalChecked());
-        Nan::Set(sensor, Nan::New("label").ToLocalChecked(), Nan::New<String>(sensors[i].label).ToLocalChecked());
-        Nan::Set(sensor, Nan::New("value").ToLocalChecked(), Nan::New<Number>(sensors[i].value));
-        Nan::Set(sensor, Nan::New("type").ToLocalChecked(), Nan::New<String>(sensors[i].type).ToLocalChecked());
-        Nan::Set(result, i, sensor);
+        Object sensor = Object::New(env);
+        sensor.Set("name", String::New(env, sensors[i].name));
+        sensor.Set("label", String::New(env, sensors[i].label));
+        sensor.Set("value", Number::New(env, sensors[i].value));
+        sensor.Set("type", String::New(env, sensors[i].type));
+        result[i] = sensor;
     }
     
-    info.GetReturnValue().Set(result);
+    return result;
 }
 
 // Get RAPL power with calculations
-NAN_METHOD(GetRAPLPowerCalculated) {
+Value GetRAPLPowerCalculated(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
     std::vector<PowerData> powerData = g_monitor->getRAPLPowerCalculated();
-    Local<Array> result = Nan::New<Array>(powerData.size());
+    Array result = Array::New(env, powerData.size());
     
     for (size_t i = 0; i < powerData.size(); i++) {
-        Local<Object> power = Nan::New<Object>();
-        Nan::Set(power, Nan::New("name").ToLocalChecked(), Nan::New<String>(powerData[i].name).ToLocalChecked());
-        Nan::Set(power, Nan::New("power").ToLocalChecked(), Nan::New<Number>(powerData[i].power));
-        Nan::Set(power, Nan::New("energy").ToLocalChecked(), Nan::New<Number>(powerData[i].energy));
-        Nan::Set(power, Nan::New("totalWh").ToLocalChecked(), Nan::New<Number>(powerData[i].total_wh));
-        Nan::Set(power, Nan::New("totalKWh").ToLocalChecked(), Nan::New<Number>(powerData[i].total_kwh));
+        Object power = Object::New(env);
+        power.Set("name", String::New(env, powerData[i].name));
+        power.Set("power", Number::New(env, powerData[i].power));
+        power.Set("energy", Number::New(env, powerData[i].energy));
+        power.Set("totalWh", Number::New(env, powerData[i].total_wh));
+        power.Set("totalKWh", Number::New(env, powerData[i].total_kwh));
         
         // Stats object
-        Local<Object> stats = Nan::New<Object>();
-        Nan::Set(stats, Nan::New("current").ToLocalChecked(), Nan::New<Number>(powerData[i].power));
-        Nan::Set(stats, Nan::New("min").ToLocalChecked(), Nan::New<Number>(powerData[i].min_power));
-        Nan::Set(stats, Nan::New("max").ToLocalChecked(), Nan::New<Number>(powerData[i].max_power));
-        Nan::Set(stats, Nan::New("avg").ToLocalChecked(), Nan::New<Number>(powerData[i].avg_power));
+        Object stats = Object::New(env);
+        stats.Set("current", Number::New(env, powerData[i].power));
+        stats.Set("min", Number::New(env, powerData[i].min_power));
+        stats.Set("max", Number::New(env, powerData[i].max_power));
+        stats.Set("avg", Number::New(env, powerData[i].avg_power));
         
-        Nan::Set(power, Nan::New("stats").ToLocalChecked(), stats);
-        Nan::Set(result, i, power);
+        power.Set("stats", stats);
+        result[i] = power;
     }
     
-    info.GetReturnValue().Set(result);
+    return result;
 }
 
 // Get Battery calculated sensors
-NAN_METHOD(GetBatteryCalculated) {
+Value GetBatteryCalculated(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
+    
     std::string status;
     bool ac_connected = false;
     double voltage_v = std::numeric_limits<double>::quiet_NaN();
@@ -148,66 +162,73 @@ NAN_METHOD(GetBatteryCalculated) {
     bool ok = g_monitor->getBatteryCalculated(status, ac_connected, voltage_v, current_a, power_w,
                                               energy_now_wh, energy_full_wh, estimated_hours, derived_state);
     if (!ok) {
-        info.GetReturnValue().Set(Nan::Null());
-        return;
+        return env.Null();
     }
 
-    Local<Object> obj = Nan::New<Object>();
-    Nan::Set(obj, Nan::New("status").ToLocalChecked(), Nan::New(status).ToLocalChecked());
-    Nan::Set(obj, Nan::New("acConnected").ToLocalChecked(), Nan::New(ac_connected));
+    Object obj = Object::New(env);
+    obj.Set("status", String::New(env, status));
+    obj.Set("acConnected", Boolean::New(env, ac_connected));
+    
     // Check for NaN using comparison (NaN != NaN is always true)
-    if (voltage_v == voltage_v) Nan::Set(obj, Nan::New("voltage").ToLocalChecked(), Nan::New(voltage_v));
-    if (current_a == current_a) Nan::Set(obj, Nan::New("current").ToLocalChecked(), Nan::New(current_a));
-    if (power_w == power_w) Nan::Set(obj, Nan::New("powerWatts").ToLocalChecked(), Nan::New(power_w));
-    if (energy_now_wh == energy_now_wh) Nan::Set(obj, Nan::New("energyNowWh").ToLocalChecked(), Nan::New(energy_now_wh));
-    if (energy_full_wh == energy_full_wh) Nan::Set(obj, Nan::New("energyFullWh").ToLocalChecked(), Nan::New(energy_full_wh));
-    if (estimated_hours == estimated_hours) Nan::Set(obj, Nan::New("estimatedHours").ToLocalChecked(), Nan::New(estimated_hours));
-    Nan::Set(obj, Nan::New("state").ToLocalChecked(), Nan::New(derived_state).ToLocalChecked());
-    info.GetReturnValue().Set(obj);
+    if (voltage_v == voltage_v) obj.Set("voltage", Number::New(env, voltage_v));
+    if (current_a == current_a) obj.Set("current", Number::New(env, current_a));
+    if (power_w == power_w) obj.Set("powerWatts", Number::New(env, power_w));
+    if (energy_now_wh == energy_now_wh) obj.Set("energyNowWh", Number::New(env, energy_now_wh));
+    if (energy_full_wh == energy_full_wh) obj.Set("energyFullWh", Number::New(env, energy_full_wh));
+    if (estimated_hours == estimated_hours) obj.Set("estimatedHours", Number::New(env, estimated_hours));
+    
+    obj.Set("state", String::New(env, derived_state));
+    return obj;
 }
 
 // Update statistics
-NAN_METHOD(UpdateStats) {
+Value UpdateStats(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
     if (info.Length() < 2) {
-        return Nan::ThrowError("Expected 2 arguments: key and value");
+        Error::New(env, "Expected 2 arguments: key and value").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
-    if (!info[0]->IsString() || !info[1]->IsNumber()) {
-        return Nan::ThrowError("Expected string key and number value");
+    if (!info[0].IsString() || !info[1].IsNumber()) {
+        Error::New(env, "Expected string key and number value").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
-    std::string key = std::string(*Nan::Utf8String(info[0]));
-    double value = info[1]->NumberValue(Nan::GetCurrentContext()).FromJust();
+    std::string key = info[0].As<String>().Utf8Value();
+    double value = info[1].As<Number>().DoubleValue();
     
     g_monitor->updateStats(key, value);
-    info.GetReturnValue().Set(Nan::New<Boolean>(true));
+    return Boolean::New(env, true);
 }
 
 // Get statistics
-NAN_METHOD(GetStats) {
+Value GetStats(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
     SystemStats stats = g_monitor->getStats();
-    Local<Object> result = Nan::New<Object>();
+    Object result = Object::New(env);
     
     // Convert stats to JavaScript object in the same format as the JavaScript version
     // Each key should have { current, min, max, avg }
     for (const auto& pair : stats.min_values) {
         const std::string& key = pair.first;
-        Local<Object> statObj = Nan::New<Object>();
+        Object statObj = Object::New(env);
         
         // Set min value
-        Nan::Set(statObj, Nan::New("min").ToLocalChecked(), Nan::New<Number>(pair.second));
+        statObj.Set("min", Number::New(env, pair.second));
         
         // Set max value if it exists
         if (stats.max_values.find(key) != stats.max_values.end()) {
-            Nan::Set(statObj, Nan::New("max").ToLocalChecked(), Nan::New<Number>(stats.max_values[key]));
+            statObj.Set("max", Number::New(env, stats.max_values[key]));
         }
         
         // Set avg value if it exists - use valid_count for accurate average
@@ -215,86 +236,83 @@ NAN_METHOD(GetStats) {
             stats.valid_count_values.find(key) != stats.valid_count_values.end() &&
             stats.valid_count_values[key] > 0) {
             double avg = stats.sum_values[key] / stats.valid_count_values[key];
-            Nan::Set(statObj, Nan::New("avg").ToLocalChecked(), Nan::New<Number>(avg));
+            statObj.Set("avg", Number::New(env, avg));
         }
         
         // Set current value
         if (stats.current_values.find(key) != stats.current_values.end()) {
-            Nan::Set(statObj, Nan::New("current").ToLocalChecked(), Nan::New<Number>(stats.current_values[key]));
+            statObj.Set("current", Number::New(env, stats.current_values[key]));
         }
         
-        Nan::Set(result, Nan::New<String>(key).ToLocalChecked(), statObj);
+        result.Set(key, statObj);
     }
     
-    info.GetReturnValue().Set(result);
+    return result;
 }
 
 // Reset statistics
-NAN_METHOD(ResetStats) {
+Value ResetStats(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
     g_monitor->resetStats();
-    info.GetReturnValue().Set(Nan::New<Boolean>(true));
+    return Boolean::New(env, true);
 }
 
 // Check if last valid value exists
-NAN_METHOD(HasLastValidValue) {
+Value HasLastValidValue(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
-    if (info.Length() < 1 || !info[0]->IsString()) {
-        return Nan::ThrowError("Expected string key");
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Error::New(env, "Expected string key").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
-    std::string key = std::string(*Nan::Utf8String(info[0]));
+    std::string key = info[0].As<String>().Utf8Value();
     bool hasValue = g_monitor->hasLastValidValue(key);
-    info.GetReturnValue().Set(Nan::New<Boolean>(hasValue));
+    return Boolean::New(env, hasValue);
 }
 
 // Get last valid value
-NAN_METHOD(GetLastValidValue) {
+Value GetLastValidValue(const CallbackInfo& info) {
+    Env env = info.Env();
     if (g_monitor == nullptr) {
-        return Nan::ThrowError("SystemMonitor not initialized");
+        Error::New(env, "SystemMonitor not initialized").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
-    if (info.Length() < 1 || !info[0]->IsString()) {
-        return Nan::ThrowError("Expected string key");
+    if (info.Length() < 1 || !info[0].IsString()) {
+        Error::New(env, "Expected string key").ThrowAsJavaScriptException();
+        return env.Null();
     }
     
-    std::string key = std::string(*Nan::Utf8String(info[0]));
+    std::string key = info[0].As<String>().Utf8Value();
     double value = g_monitor->getLastValidValue(key);
-    info.GetReturnValue().Set(Nan::New<Number>(value));
+    return Number::New(env, value);
 }
 
 // Module initialization
-NAN_MODULE_INIT(Init) {
-    Nan::Set(target, Nan::New("initialize").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(Initialize)).ToLocalChecked());
-    Nan::Set(target, Nan::New("getCPUCores").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(GetCPUCores)).ToLocalChecked());
-    Nan::Set(target, Nan::New("getTemperatureSensors").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(GetTemperatureSensors)).ToLocalChecked());
-    Nan::Set(target, Nan::New("getDDR5Temperatures").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(GetDDR5Temperatures)).ToLocalChecked());
-    Nan::Set(target, Nan::New("getRAPLPower").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(GetRAPLPower)).ToLocalChecked());
-    Nan::Set(target, Nan::New("getRAPLPowerCalculated").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(GetRAPLPowerCalculated)).ToLocalChecked());
-    Nan::Set(target, Nan::New("getBatteryCalculated").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(GetBatteryCalculated)).ToLocalChecked());
-    Nan::Set(target, Nan::New("updateStats").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(UpdateStats)).ToLocalChecked());
-    Nan::Set(target, Nan::New("getStats").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(GetStats)).ToLocalChecked());
-    Nan::Set(target, Nan::New("resetStats").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(ResetStats)).ToLocalChecked());
-    Nan::Set(target, Nan::New("hasLastValidValue").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(HasLastValidValue)).ToLocalChecked());
-    Nan::Set(target, Nan::New("getLastValidValue").ToLocalChecked(),
-             Nan::GetFunction(Nan::New<FunctionTemplate>(GetLastValidValue)).ToLocalChecked());
+Object Init(Env env, Object exports) {
+    exports.Set(String::New(env, "initialize"), Function::New(env, Initialize));
+    exports.Set(String::New(env, "getCPUCores"), Function::New(env, GetCPUCores));
+    exports.Set(String::New(env, "getTemperatureSensors"), Function::New(env, GetTemperatureSensors));
+    exports.Set(String::New(env, "getDDR5Temperatures"), Function::New(env, GetDDR5Temperatures));
+    exports.Set(String::New(env, "getRAPLPower"), Function::New(env, GetRAPLPower));
+    exports.Set(String::New(env, "getRAPLPowerCalculated"), Function::New(env, GetRAPLPowerCalculated));
+    exports.Set(String::New(env, "getBatteryCalculated"), Function::New(env, GetBatteryCalculated));
+    exports.Set(String::New(env, "updateStats"), Function::New(env, UpdateStats));
+    exports.Set(String::New(env, "getStats"), Function::New(env, GetStats));
+    exports.Set(String::New(env, "resetStats"), Function::New(env, ResetStats));
+    exports.Set(String::New(env, "hasLastValidValue"), Function::New(env, HasLastValidValue));
+    exports.Set(String::New(env, "getLastValidValue"), Function::New(env, GetLastValidValue));
+    return exports;
 }
 
-NODE_MODULE(system_monitor, Init)
+NODE_API_MODULE(system_monitor, Init)
