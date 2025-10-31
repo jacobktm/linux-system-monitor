@@ -775,65 +775,9 @@ let updateCount = 0;
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('📋 DOM Content Loaded');
-  console.log('📋 Document ready state:', document.readyState);
-  console.log('📋 Document body:', document.body ? 'exists' : 'missing');
-  console.log('📋 Container element:', document.querySelector('.container') ? 'exists' : 'missing');
-  console.log('📋 CPU name element:', document.getElementById('cpu-name') ? 'exists' : 'missing');
-  
-  // Check if styles are loaded
-  const computedStyle = window.getComputedStyle(document.body);
-  console.log('📋 Body background color:', computedStyle.backgroundColor);
-  console.log('📋 Body display:', computedStyle.display);
-  console.log('📋 Stylesheet count:', document.styleSheets.length);
-  
-  // Check stylesheet loading
-  console.log('📋 Checking stylesheets...');
-  for (let i = 0; i < document.styleSheets.length; i++) {
-    try {
-      const sheet = document.styleSheets[i];
-      console.log(`📋 Stylesheet ${i}:`, sheet.href || sheet.ownerNode?.tagName || 'unknown');
-      if (sheet.cssRules) {
-        console.log(`📋   Rules count: ${sheet.cssRules.length}`);
-        // Try to access first rule to verify it's loaded
-        if (sheet.cssRules.length > 0) {
-          console.log(`📋   First rule: ${sheet.cssRules[0].cssText.substring(0, 50)}...`);
-        }
-      } else {
-        console.warn(`⚠️   Stylesheet ${i} rules not accessible (may be cross-origin or failed to load)`);
-      }
-    } catch (e) {
-      console.warn(`⚠️ Cannot access stylesheet ${i}:`, e.message);
-    }
-  }
-  
-  // Check if CSS link tag exists
-  const cssLink = document.querySelector('link[rel="stylesheet"]');
-  if (cssLink) {
-    console.log('📋 CSS link tag found:', cssLink.href);
-    console.log('📋 CSS link computed:', window.getComputedStyle(cssLink).display);
-  } else {
-    console.error('❌ No CSS link tag found in HTML!');
-  }
-  
-  // Check if renderer.js script tag exists
-  const scriptTag = document.querySelector('script[src="renderer.js"]');
-  if (scriptTag) {
-    console.log('📋 Renderer script tag found:', scriptTag.src);
-  } else {
-    console.warn('⚠️ Renderer script tag not found (may have already loaded)');
-  }
-  
   // Update loading status
   const loadingOverlay = document.getElementById('loading-overlay');
   const loadingStatus = document.getElementById('loading-status');
-  
-  if (!loadingOverlay) {
-    console.error('❌ Loading overlay element not found!');
-  }
-  if (!loadingStatus) {
-    console.error('❌ Loading status element not found!');
-  }
   
   if (loadingStatus) {
     loadingStatus.textContent = 'Checking IPC bridge...';
@@ -846,80 +790,15 @@ document.addEventListener('DOMContentLoaded', () => {
       loadingStatus.innerHTML = `
         <div style="color: #f44336; margin-top: 20px;">
           <strong>⚠️ Error: IPC Bridge Not Available</strong><br>
-          window.electron: ${window.electron ? 'exists' : 'undefined'}<br>
-          window.electron.getSystemData: ${window.electron?.getSystemData ? 'exists' : 'undefined'}
+          Please restart the application.
         </div>
       `;
     }
     return;
   }
   
-  console.log('✅ Electron IPC bridge available');
-  
   if (loadingStatus) {
     loadingStatus.textContent = 'Loading system data...';
-  }
-  
-  // Test DOM manipulation - try to append a test element to body
-  try {
-    if (!document.body) {
-      console.error('❌ document.body is null!');
-    } else {
-      // Check body computed styles
-      const bodyStyle = window.getComputedStyle(document.body);
-      console.log('📋 Body computed styles:', {
-        display: bodyStyle.display,
-        visibility: bodyStyle.visibility,
-        opacity: bodyStyle.opacity,
-        width: bodyStyle.width,
-        height: bodyStyle.height,
-        backgroundColor: bodyStyle.backgroundColor
-      });
-      
-      // Create test element with very obvious styling
-      const testEl = document.createElement('div');
-      testEl.style.cssText = 'position: fixed !important; top: 10px !important; right: 10px !important; background: red !important; color: white !important; padding: 20px !important; z-index: 999999 !important; font-size: 20px !important; font-weight: bold !important; border: 5px solid yellow !important;';
-      testEl.textContent = '🔴 DOM TEST - If you see this, DOM works! 🔴';
-      testEl.id = 'dom-test-element';
-      document.body.appendChild(testEl);
-      
-      // Verify it was added
-      const addedEl = document.getElementById('dom-test-element');
-      if (addedEl) {
-        const elStyle = window.getComputedStyle(addedEl);
-        console.log('✅ Test element added to DOM');
-        console.log('📋 Test element computed styles:', {
-          display: elStyle.display,
-          visibility: elStyle.visibility,
-          opacity: elStyle.opacity,
-          backgroundColor: elStyle.backgroundColor,
-          position: elStyle.position,
-          zIndex: elStyle.zIndex
-        });
-        console.log('📋 Test element offset:', {
-          offsetTop: addedEl.offsetTop,
-          offsetLeft: addedEl.offsetLeft,
-          offsetWidth: addedEl.offsetWidth,
-          offsetHeight: addedEl.offsetHeight
-        });
-      } else {
-        console.error('❌ Test element was not found after adding!');
-      }
-      
-      // Keep test element longer for debugging (30 seconds)
-      setTimeout(() => {
-        const el = document.getElementById('dom-test-element');
-        if (el) {
-          console.log('Removing test element after 30 seconds...');
-          el.remove();
-        } else {
-          console.warn('⚠️ Test element already removed or not found');
-        }
-      }, 30000);
-    }
-  } catch (domTestErr) {
-    console.error('❌ DOM test failed:', domTestErr);
-    console.error('❌ DOM test error stack:', domTestErr.stack);
   }
   
   // Initial update

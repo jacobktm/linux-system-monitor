@@ -183,7 +183,6 @@ function createWindow() {
 
   // Handle page load events
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log('✅ Window finished loading');
     mainWindow.show();
   });
 
@@ -192,43 +191,18 @@ function createWindow() {
     mainWindow.show(); // Show anyway to see any error message
   });
 
-  // Handle console messages from renderer
+  // Handle console messages from renderer (only show warnings and errors)
   mainWindow.webContents.on('console-message', (event, level, message) => {
-    if (level === 0) { // INFO
-      console.log('Renderer:', message);
-    } else if (level === 1) { // WARNING
+    if (level === 1) { // WARNING
       console.warn('Renderer:', message);
     } else if (level === 2) { // ERROR
       console.error('Renderer ERROR:', message);
     }
+    // Suppress INFO level messages to reduce terminal spam
   });
 
   // Load the HTML file
-  // In packaged apps, __dirname points to resources/app.asar
-  // In development, __dirname points to the project root
   const htmlPath = path.join(__dirname, 'index.html');
-  console.log('📄 Loading HTML from:', htmlPath);
-  console.log('📄 __dirname:', __dirname);
-  console.log('📄 Process type:', process.type || 'main');
-  
-  // Verify file exists
-  if (fs.existsSync(htmlPath)) {
-    console.log('✅ HTML file exists');
-  } else {
-    console.error('❌ HTML file does not exist at:', htmlPath);
-    // Try alternative paths
-    const altPaths = [
-      path.join(__dirname, '..', 'index.html'),
-      path.join(process.resourcesPath, 'app', 'index.html'),
-      path.join(process.resourcesPath, 'app.asar', 'index.html')
-    ];
-    for (const altPath of altPaths) {
-      if (fs.existsSync(altPath)) {
-        console.log('✅ Found HTML at alternative path:', altPath);
-        break;
-      }
-    }
-  }
   
   mainWindow.loadFile(htmlPath).catch(err => {
     console.error('❌ Error loading HTML file:', err);
