@@ -20,16 +20,31 @@ exports.default = async function(context) {
     console.log('Custom AppRun installed successfully');
   }
   
-  // Verify native module is unpacked (should be in resources/app.asar.unpacked)
-  // The asarUnpack configuration should handle this, but let's verify
+  // Verify native module is unpacked
+  // electron-builder unpacks it to the app root in unpacked builds
+  // In AppImage, it should be in resources/app.asar.unpacked/build/Release/
   const resourcesDir = path.join(appOutDir, 'resources');
   const asarUnpackedDir = path.join(resourcesDir, 'app.asar.unpacked');
-  const nativeModulePath = path.join(asarUnpackedDir, 'build', 'Release', 'system_monitor.node');
   
-  if (fs.existsSync(nativeModulePath)) {
-    console.log('✓ Native module found in unpacked directory:', nativeModulePath);
-  } else {
-    console.warn('⚠ Native module not found at expected location:', nativeModulePath);
+  // Check multiple possible locations
+  const possiblePaths = [
+    path.join(asarUnpackedDir, 'build', 'Release', 'system_monitor.node'),
+    path.join(appOutDir, 'build', 'Release', 'system_monitor.node'),
+    path.join(appOutDir, 'resources', 'app', 'build', 'Release', 'system_monitor.node')
+  ];
+  
+  let found = false;
+  for (const nativeModulePath of possiblePaths) {
+    if (fs.existsSync(nativeModulePath)) {
+      console.log('✓ Native module found:', nativeModulePath);
+      found = true;
+      break;
+    }
+  }
+  
+  if (!found) {
+    console.warn('⚠ Native module not found at expected locations:');
+    possiblePaths.forEach(p => console.warn('    ', p));
     console.warn('  This is expected if native module build failed or npmRebuild=false');
     console.warn('  Application will use JavaScript fallback');
   }
