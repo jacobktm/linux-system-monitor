@@ -7,6 +7,11 @@
     "start": "electron . --js-flags=\"--expose-gc\" --disable-gpu --disable-gpu-compositing --disable-gpu-sandbox",
     "dev": "electron . --dev --js-flags=\"--expose-gc\" --disable-gpu --disable-gpu-compositing --disable-gpu-sandbox",
     "build": "node-gyp rebuild",
+    "build:native": "electron-rebuild -f -w",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:linux": "electron-builder --linux",
+    "postinstall": "electron-rebuild -f -w || true",
     "install": "node-gyp rebuild",
     "clean": "node-gyp clean"
   },
@@ -20,11 +25,76 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^27.0.0",
+    "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "nan": "^2.17.0",
     "node-gyp": "^10.0.0"
   },
   "dependencies": {
     "systeminformation": "^5.21.0"
+  },
+  "build": {
+    "appId": "com.linux-system-monitor.app",
+    "productName": "Linux System Monitor",
+    "copyright": "Copyright © 2024",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
+      "!src",
+      "!binding.gyp",
+      "!setup.sh",
+      "!test_*.js",
+      "!test_*.sh"
+    ],
+    "extraFiles": [
+      {
+        "from": "build/Release/system_monitor.node",
+        "to": "build/Release/system_monitor.node"
+      }
+    ],
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "System"
+    },
+    "appImage": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "deb": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "depends": []
+    },
+    "electronRebuild": true,
+    "nodeGypRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/build/Release/*.node",
+      "**/node_modules/**/*.node"
+    ]
   }
 }
