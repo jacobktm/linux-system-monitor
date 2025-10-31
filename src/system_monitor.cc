@@ -281,8 +281,12 @@ std::vector<PowerData> SystemMonitor::getRAPLPowerCalculated() {
                     double avgPower = 0.0;
                     
                     if (timeDelta > 0) {
-                        // Convert microjoules to watts: (μJ / μs) / 1,000,000 = J/s = W
-                        powerWatts = (double)energyDelta / (double)timeDelta / 1000000.0;
+                        // Convert microjoules and microseconds to watts:
+                        // Power (W) = Energy (J) / Time (s)
+                        // Power (W) = (Energy (μJ) / 1,000,000) / (Time (μs) / 1,000,000)
+                        // Power (W) = Energy (μJ) / Time (μs) * (1,000,000 / 1,000,000)
+                        // Power (W) = Energy (μJ) / Time (μs)
+                        powerWatts = (double)energyDelta / (double)timeDelta;
                     }
                     
                     // Always accumulate energy if timeDelta is reasonable (regardless of power filter)
