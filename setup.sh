@@ -193,7 +193,7 @@ install_npm_deps() {
 
 # Function to build native addon
 build_native_addon() {
-    print_status "Building native system monitor addon..."
+    print_status "Building native system monitor addon with N-API (Node-API)..."
     
     if [ ! -f "binding.gyp" ]; then
         print_warning "binding.gyp not found. Skipping native addon build..."
@@ -206,15 +206,18 @@ build_native_addon() {
         npm run clean
     fi
     
-    # Build the native addon
-    npm run build
+    # Build the native addon for Electron using electron-rebuild
+    # This will compile with the correct ABI for Electron
+    print_status "Building for Electron (this may take a few minutes)..."
+    npm run build:native
     
     if [ $? -eq 0 ]; then
-        print_success "Native addon built successfully"
+        print_success "Native addon built successfully with N-API for Electron"
         print_status "Native features enabled:"
         print_status "  - High-performance statistics calculation"
         print_status "  - Power monitor persistence"
         print_status "  - Valid value filtering for accurate averages"
+        print_status "  - Future-proof N-API (Node-API) implementation"
         
         # Test the native addon
         print_status "Testing native addon..."
@@ -226,6 +229,7 @@ build_native_addon() {
     else
         print_warning "Failed to build native addon. Application will use JavaScript fallback."
         print_warning "This may result in reduced performance on high-core systems."
+        print_warning "Check that node-addon-api is installed and Electron version is compatible."
     fi
 }
 
