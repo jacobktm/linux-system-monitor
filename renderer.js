@@ -263,9 +263,6 @@ function updateGPU(data) {
     const gpuUsageValue = (gpu.utilizationGpu !== null && gpu.utilizationGpu !== undefined) 
       ? formatStat(gpu.utilizationGpu, stats, 'gpu_usage', '%')
       : formatStat(0, stats, 'gpu_usage', '%');
-    const gpuTempText = (gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) 
-      ? formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C') 
-      : '';
     
     metricsHTML += `
       <div class="metric-row">
@@ -273,31 +270,17 @@ function updateGPU(data) {
           <span class="label">GPU Usage</span>
           <span class="value">${gpuUsageValue}</span>
         </div>
-        ${(gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) ? `
-          <div class="metric">
-            <span class="label">Temperature</span>
-            <span class="value ${getTempClass(gpu.temperatureGpu)}">${gpuTempText}</span>
-          </div>
-        ` : ''}
       </div>
     `;
     
-    // VRAM and Fan
-    if (vramInfo || gpu.fanSpeed !== null) {
+    // VRAM (full width when present)
+    if (vramInfo) {
       metricsHTML += `
         <div class="metric-row">
-          ${vramInfo ? `
-            <div class="metric">
-              <span class="label">VRAM Usage</span>
-              <span class="value">${vramInfo}</span>
-            </div>
-          ` : ''}
-          ${gpu.fanSpeed !== null ? `
-            <div class="metric">
-              <span class="label">Fan Speed</span>
-              <span class="value">${gpu.fanSpeed}%</span>
-            </div>
-          ` : ''}
+          <div class="metric">
+            <span class="label">VRAM Usage</span>
+            <span class="value">${vramInfo}</span>
+          </div>
         </div>
       `;
     }
@@ -340,6 +323,30 @@ function updateGPU(data) {
           </div>
         `;
       }
+    }
+    
+    // Temperature and Fan Speed - side by side, just above clocks
+    const gpuTempText = (gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) 
+      ? formatStat(gpu.temperatureGpu, stats, 'gpu_temp', '°C') 
+      : '';
+    
+    if ((gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) || gpu.fanSpeed !== null) {
+      metricsHTML += `
+        <div class="metric-row">
+          ${(gpu.temperatureGpu !== null && gpu.temperatureGpu !== undefined) ? `
+            <div class="metric">
+              <span class="label">Temperature</span>
+              <span class="value ${getTempClass(gpu.temperatureGpu)}">${gpuTempText}</span>
+            </div>
+          ` : ''}
+          ${gpu.fanSpeed !== null ? `
+            <div class="metric">
+              <span class="label">Fan Speed</span>
+              <span class="value">${gpu.fanSpeed}%</span>
+            </div>
+          ` : ''}
+        </div>
+      `;
     }
     
     // Clock speeds
