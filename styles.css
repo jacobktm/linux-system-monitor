@@ -38,6 +38,9 @@ header h1 {
 }
 
 .system-info {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.9em;
   color: #b0b0b0;
   margin-top: 10px;
