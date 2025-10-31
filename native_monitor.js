@@ -11,12 +11,20 @@ try {
     try {
         // Fallback to local build (works in both development and packaged)
         // In packaged apps, __dirname points to the unpacked app directory
-        const buildPath = path.join(__dirname, 'build/Release/system_monitor');
+        // Try both .node extension and without (for compatibility)
+        const buildPath = path.join(__dirname, 'build/Release/system_monitor.node');
         systemMonitor = require(buildPath);
-        console.log('Loaded native system monitor from build/Release');
+        console.log('Loaded native system monitor from build/Release/system_monitor.node');
     } catch (e2) {
-        console.error('Failed to load native system monitor:', e1.message, '|', e2.message);
-        throw e2;
+        try {
+            // Try without .node extension (legacy)
+            const buildPathLegacy = path.join(__dirname, 'build/Release/system_monitor');
+            systemMonitor = require(buildPathLegacy);
+            console.log('Loaded native system monitor from build/Release/system_monitor');
+        } catch (e3) {
+            console.error('Failed to load native system monitor:', e1.message, '|', e2.message, '|', e3.message);
+            throw e3;
+        }
     }
 }
 

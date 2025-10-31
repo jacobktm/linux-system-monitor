@@ -175,20 +175,9 @@ function createWindow() {
     mainWindow.webContents.openDevTools(); // Open DevTools to debug
   });
   
-  // Open DevTools in development or after a delay to check if content renders
+  // Open DevTools only in development mode
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
-  } else {
-    // Open DevTools after 3 seconds if content might not be rendering
-    // User can close it if everything works
-    setTimeout(() => {
-      mainWindow.webContents.openDevTools();
-      console.log('🔧 DevTools opened automatically for debugging');
-      // Close DevTools after 10 seconds if user doesn't need it
-      setTimeout(() => {
-        // Don't auto-close - let user decide
-      }, 10000);
-    }, 3000);
   }
 }
 
