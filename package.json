@@ -7,7 +7,7 @@
     "start": "electron . --js-flags=\"--expose-gc\" --disable-gpu --disable-gpu-compositing --disable-gpu-sandbox",
     "dev": "electron . --dev --js-flags=\"--expose-gc\" --disable-gpu --disable-gpu-compositing --disable-gpu-sandbox",
     "build": "node-gyp rebuild",
-    "build:native": "npx @electron/rebuild --module-dir . -f -w",
+    "build:native": "npx @electron/rebuild --module-dir node_modules -f -w || npx @electron/rebuild --module-dir . -f -w || echo 'Note: electron-builder will rebuild during packaging'",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:linux": "electron-builder --linux",
