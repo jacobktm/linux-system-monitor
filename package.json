@@ -11,7 +11,7 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:linux": "electron-builder --linux",
-    "postinstall": "electron-rebuild -f -w || true",
+    "postinstall": "electron-builder install-app-deps || true",
     "install": "node-gyp rebuild",
     "clean": "node-gyp clean"
   },
@@ -83,15 +83,18 @@
       "category": "System"
     },
     "appImage": {
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "systemIntegration": "ask"
     },
     "deb": {
       "artifactName": "${productName}-${version}-${arch}.${ext}",
-      "depends": []
+      "depends": [],
+      "maintainer": "Linux System Monitor <system-monitor@localhost>"
     },
-    "electronRebuild": true,
     "nodeGypRebuild": false,
+    "npmRebuild": true,
     "asar": true,
+    "afterPack": "scripts/after-pack.js",
     "asarUnpack": [
       "**/build/Release/*.node",
       "**/node_modules/**/*.node"

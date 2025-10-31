@@ -1,0 +1,114 @@
+#!/bin/bash
+
+# AppRun wrapper for Linux System Monitor AppImage
+# Automatically requests elevated privileges if needed
+
+# Get the directory where the AppImage is mounted
+# In AppImage, $0 points to AppRun in the mounted directory
+# The executable should be in the same directory as AppRun
+APP_DIR="$(dirname "$(readlink -f "$0")")"
+EXECUTABLE="$APP_DIR/linux-system-monitor"
+
+# Verify executable exists
+if [ ! -f "$EXECUTABLE" ]; then
+    echo "Error: Cannot find linux-system-monitor executable in $APP_DIR" >&2
+    exit 1
+fi
+
+# Function to check if we need elevated privileges
+needs_privileges() {
+    # Check if we can read RAPL power data (requires root on some systems)
+    if [ ! -r "/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj" ] 2>/dev/null; then
+        # Also check if we're already root
+        if [ "$(id -u)" -ne 0 ]; then
+            return 0  # Needs privileges and we're not root
+        fi
+    fi
+    return 1  # Doesn't need privileges
+}
+
+# Function to launch with GUI privilege prompt
+launch_with_privileges() {
+    local display_server="x11"
+    
+    # Detect display server
+    if [ -n "$WAYLAND_DISPLAY" ] || [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+        display_server="wayland"
+    fi
+    
+    # Try pkexec first (most common, works with both X11 and Wayland)
+    if command -v pkexec >/dev/null 2>&1; then
+        # Preserve all necessary environment variables for Electron
+        # Create a wrapper script that preserves environment
+        local wrapper_script=$(mktemp)
+        cat > "$wrapper_script" << 'WRAPPER_EOF'
+#!/bin/bash
+# Preserve environment and run Electron app
+export DISPLAY="$DISPLAY"
+export WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
+export XDG_SESSION_TYPE="$XDG_SESSION_TYPE"
+export XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR"
+export XDG_CONFIG_HOME="$XDG_CONFIG_HOME"
+export XDG_DATA_HOME="$XDG_DATA_HOME"
+export HOME="$HOME"
+export USER="$USER"
+export PATH="$PATH"
+export LANG="$LANG"
+export LC_ALL="$LC_ALL"
+export ELECTRON_DISABLE_GPU=1
+export ELECTRON_DISABLE_GPU_COMPOSITING=1
+export ELECTRON_DISABLE_GPU_SANDBOX=1
+
+# Run the executable
+exec "$@"
+WRAPPER_EOF
+        chmod +x "$wrapper_script"
+        
+        # Use pkexec with descriptive message
+        pkexec --disable-internal-agent \
+               "$wrapper_script" \
+               "$EXECUTABLE" --no-sandbox --ozone-platform="$display_server"
+        
+        local exit_code=$?
+        rm -f "$wrapper_script"
+        exit $exit_code
+    # Fallback to gksu/gksudo (X11 only)
+    elif command -v gksu >/dev/null 2>&1 && [ "$display_server" = "x11" ]; then
+        gksu "$EXECUTABLE --no-sandbox --ozone-platform=$display_server"
+    elif command -v gksudo >/dev/null 2>&1 && [ "$display_server" = "x11" ]; then
+        gksudo "$EXECUTABLE --no-sandbox --ozone-platform=$display_server"
+    else
+        # Last resort: use zenity/kdialog to get password then sudo
+        local password=""
+        if command -v zenity >/dev/null 2>&1; then
+            password=$(zenity --password --title="Linux System Monitor - Privileges Required" \
+                --text="Administrator privileges are required to access power monitoring data.\n\nPlease enter your password:")
+        elif command -v kdialog >/dev/null 2>&1; then
+            password=$(kdialog --password "Administrator privileges are required to access power monitoring data.\n\nPlease enter your password:")
+        fi
+        
+        if [ -n "$password" ]; then
+            echo "$password" | sudo -S env DISPLAY="$DISPLAY" \
+                 WAYLAND_DISPLAY="$WAYLAND_DISPLAY" \
+                 XDG_SESSION_TYPE="$XDG_SESSION_TYPE" \
+                 XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+                 HOME="$HOME" \
+                 USER="$USER" \
+                 PATH="$PATH" \
+                 "$EXECUTABLE" --no-sandbox --ozone-platform="$display_server"
+        else
+            echo "Privilege elevation cancelled or failed."
+            exit 1
+        fi
+    fi
+}
+
+# Main execution
+if needs_privileges; then
+    # Check if we can access power data - if not, we need privileges
+    launch_with_privileges
+else
+    # No privileges needed - run normally
+    exec "$EXECUTABLE" "$@"
+fi
+
