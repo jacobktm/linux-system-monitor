@@ -112,6 +112,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    show: false, // Don't show until ready
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -122,9 +123,58 @@ function createWindow() {
     resizable: true,
   });
 
-  mainWindow.loadFile('index.html');
+  // Suppress non-critical Electron/Chrome console errors
+  // These are harmless warnings and don't affect functionality
+  const originalLog = console.error;
+  console.error = function(...args) {
+    const message = args.join(' ');
+    const suppressed = [
+      'Failed to connect to the bus',
+      'Authorization required',
+      'xcb_connect',
+      'EGL',
+      'ANGLE',
+      'GLDisplayEGL',
+      'libva error',
+      'IBUS-WARNING',
+      'Exiting GPU process'
+    ];
+    if (!suppressed.some(pattern => message.includes(pattern))) {
+      originalLog.apply(console, args);
+    }
+  };
+
+  // Handle page load events
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('✅ Window finished loading');
+    mainWindow.show();
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('❌ Failed to load page:', errorCode, errorDescription);
+    mainWindow.show(); // Show anyway to see any error message
+  });
+
+  // Handle console messages from renderer
+  mainWindow.webContents.on('console-message', (event, level, message) => {
+    if (level === 0) { // INFO
+      console.log('Renderer:', message);
+    } else if (level === 1) { // WARNING
+      console.warn('Renderer:', message);
+    } else if (level === 2) { // ERROR
+      console.error('Renderer ERROR:', message);
+    }
+  });
+
+  // Load the HTML file
+  const htmlPath = path.join(__dirname, 'index.html');
+  console.log('📄 Loading HTML from:', htmlPath);
+  mainWindow.loadFile(htmlPath).catch(err => {
+    console.error('❌ Error loading HTML file:', err);
+    mainWindow.show(); // Show window even if load fails
+  });
   
-  // Open DevTools in development
+  // Open DevTools in development or if load fails
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }

@@ -695,6 +695,7 @@ function updateSystemInfo(data) {
 
 // Throttle IPC calls to prevent overwhelming the main process
 let isUpdating = false;
+let firstUpdateComplete = false;
 
 // Update all system data
 async function updateSystemData() {
@@ -706,6 +707,16 @@ async function updateSystemData() {
   try {
     const data = await window.electron.getSystemData();
     console.log('🖥️ RENDERER: Received data, stats count:', data.stats ? Object.keys(data.stats).length : 0);
+    
+    // Hide loading overlay after first successful update
+    if (!firstUpdateComplete) {
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+      }
+      firstUpdateComplete = true;
+      console.log('✅ First data update complete, UI should now be visible');
+    }
     
     // Stats are being received and processed
     
@@ -738,8 +749,44 @@ let updateCount = 0;
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('📋 DOM Content Loaded');
+  
+  // Update loading status
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const loadingStatus = document.getElementById('loading-status');
+  
+  if (loadingStatus) {
+    loadingStatus.textContent = 'Checking IPC bridge...';
+  }
+  
+  // Check if IPC bridge is available
+  if (!window.electron || !window.electron.getSystemData) {
+    console.error('❌ Electron IPC bridge not available!');
+    if (loadingStatus) {
+      loadingStatus.innerHTML = `
+        <div style="color: #f44336; margin-top: 20px;">
+          <strong>⚠️ Error: IPC Bridge Not Available</strong><br>
+          window.electron: ${window.electron ? 'exists' : 'undefined'}<br>
+          window.electron.getSystemData: ${window.electron?.getSystemData ? 'exists' : 'undefined'}
+        </div>
+      `;
+    }
+    return;
+  }
+  
+  console.log('✅ Electron IPC bridge available');
+  
+  if (loadingStatus) {
+    loadingStatus.textContent = 'Loading system data...';
+  }
+  
   // Initial update
-  updateSystemData();
+  updateSystemData().catch(err => {
+    console.error('Error on initial data load:', err);
+    if (loadingStatus) {
+      loadingStatus.innerHTML = `<div style="color: #f44336; margin-top: 20px;">Error loading data: ${err.message}</div>`;
+    }
+  });
   
   // Update every 100ms for 10 Hz refresh rate (high-performance monitoring)
   setInterval(() => {
