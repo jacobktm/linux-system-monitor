@@ -1272,8 +1272,6 @@ ipcMain.handle('get-system-data', async () => {
     console.log('🔧 INIT: Initialization delay complete');
   }
   
-  console.log('📡 IPC: Handler called - starting data fetch');
-  
   try {
     const now = Date.now();
     const needsStaticUpdate = !staticDataCache.cpu || (now - staticDataCache.lastUpdate) > STATIC_CACHE_DURATION;
@@ -1281,7 +1279,6 @@ ipcMain.handle('get-system-data', async () => {
     
     // Update static data cache if needed (every 30s)
     if (needsStaticUpdate) {
-      console.log('🔄 CACHE: Updating static data cache...');
       try {
         const [cpu, osInfo, diskLayout] = await Promise.all([
           si.cpu(),
@@ -1292,7 +1289,6 @@ ipcMain.handle('get-system-data', async () => {
         staticDataCache.osInfo = osInfo;
         staticDataCache.diskLayout = diskLayout;
         staticDataCache.lastUpdate = now;
-        console.log('✅ CACHE: Static data cache updated successfully');
       } catch (error) {
         console.error('Error updating static data cache:', error);
         throw error;
@@ -1301,7 +1297,6 @@ ipcMain.handle('get-system-data', async () => {
     
     // Update medium-speed data cache if needed (every 1s)
     if (needsMediumUpdate) {
-      console.log('🔄 CACHE: Updating medium data cache...');
       try {
         const [battery, fans, power, diskTemps, cpuTemps, systemTemps, ddr5Temps, nativeBat] = await Promise.all([
           si.battery(),
@@ -1323,7 +1318,6 @@ ipcMain.handle('get-system-data', async () => {
         mediumDataCache.systemTemps = systemTemps;
         mediumDataCache.ddr5Temps = ddr5Temps;
         mediumDataCache.lastUpdate = now;
-        console.log('✅ CACHE: Medium data cache updated successfully');
       } catch (error) {
         console.error('Error updating medium data cache:', error);
         throw error;
@@ -1331,7 +1325,6 @@ ipcMain.handle('get-system-data', async () => {
     }
     
     // Fetch fast-updating data (every 100ms) - only the essentials
-    console.log('⚡ FAST: Fetching fast-updating data...');
     let cpuLoad, cpuTemp, cpuFreqs, mem, diskIO, perDiskIO, gpuData, networkStats, diskSmart, raplPower;
     
     try {
@@ -1359,7 +1352,6 @@ ipcMain.handle('get-system-data', async () => {
     
       // Get SMART data (cached for 60s)
       diskSmart = await getDiskSMARTData();
-      console.log('✅ FAST: Fast data fetched successfully');
     } catch (error) {
       console.error('❌ FAST: Error fetching fast data:', error);
       throw error;
@@ -1503,7 +1495,6 @@ ipcMain.handle('get-system-data', async () => {
     lastEnergyTimestampMs = nowTs;
     
     // Track stats with simple system
-    console.log('📊 STATS: Tracking statistics...');
     updateSimpleStat('cpu_usage', result.cpu.currentLoad);
     updateSimpleStat('mem_percent', result.memory.usedPercent);
     
@@ -1600,8 +1591,6 @@ ipcMain.handle('get-system-data', async () => {
     // Add statistics to response
     const stats = getSimpleStats();
     result.stats = stats;
-    console.log(`📊 STATS: Generated ${Object.keys(stats).length} statistics`);
-    console.log('✅ IPC: Data fetch completed successfully');
     return result;
   } catch (error) {
     console.error('Error fetching system data:', error);
