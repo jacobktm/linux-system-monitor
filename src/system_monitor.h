@@ -1,6 +1,7 @@
 #ifndef SYSTEM_MONITOR_H
 #define SYSTEM_MONITOR_H
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <map>
